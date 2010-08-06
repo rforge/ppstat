@@ -1,0 +1,31 @@
+\name{encodePPM}
+\Rdversion{1.1}
+\alias{encodePPM}
+\docType{data}
+\title{
+Encode point process model
+}
+\description{
+
+A model fitted to the \code{\link{encodeData}} data set. 
+
+}
+\usage{data(encodePPM)}
+\format{An object of class \code{\linkS4class{PointProcessModel}}.
+  
+}
+\details{
+  
+  More details needed.
+  
+}
+
+\references{
+  
+  Reference to our paper.
+  
+}
+\examples{
+data(encodePPM)
+}
+\keyword{datasets}
