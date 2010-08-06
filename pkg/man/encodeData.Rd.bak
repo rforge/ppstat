@@ -1,0 +1,36 @@
+\name{encodeData}
+\Rdversion{1.1}
+\alias{encodeData}
+\docType{data}
+\title{
+Encode point process data.
+}
+\description{
+
+  The ChIP-chip affymetrix data for eight transcription factor bindings
+  and two histone modifications in the 44 ENCODE regions.
+
+}
+\usage{data(encodeData)}
+\format{ An object of class \code{\linkS4class{ProcessData}}
+ 
+}
+\details{
+
+  More details should be given.
+  
+}
+\source{
+
+A pointer to where the data was obtained
+
+}
+\references{
+
+Reference to the original paper.
+
+}
+\examples{
+data(encodeData)
+}
+\keyword{datasets}
