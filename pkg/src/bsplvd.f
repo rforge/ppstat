@@ -1,3 +1,6 @@
+C Taken from the splines R-package and used needed for computing smooting 
+C spline penalty matrix in sgram.f used by the ppstat R-package.
+
       subroutine bsplvd ( t, lent, k, x, left, a, dbiatx, nderiv )
 c     --------   ------
 c      implicit none

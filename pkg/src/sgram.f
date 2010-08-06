@@ -9,6 +9,9 @@ C                       whose (i,j)'th element contains the integral of
 C                       B''(i,.) B''(j,.) , i=1,2 ... nb and j=i,...nb.
 C                       Only the upper four diagonals are computed.
 
+C Taken from the splines R-package and used here to compute smooting 
+C spline penalty matrix in the ppstat R-package.
+
       subroutine sgram(sg0,sg1,sg2,sg3,tb,nb)
 
 c      implicit none
