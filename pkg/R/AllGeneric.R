@@ -1,4 +1,4 @@
-### Generics not existing for ppstat
+### Generics for ppstat
 
 setGeneric("computeLinearPredictor",function(object,...) standardGeneric("computeLinearPredictor"))
 setGeneric("computeMinusLogLikelihood",function(object,coefficients=NULL,...) standardGeneric("computeMinusLogLikelihood"))
@@ -8,5 +8,6 @@ setGeneric("computeModelMatrix",function(object,evaluationPositions=NULL,...) st
 setGeneric("computeRecurrenceMatrix",function(object,evaluationPositions=NULL,A=1000,...) standardGeneric("computeRecurrenceMatrix"))
 setGeneric("getModelMatrix",function(object,...) standardGeneric("getModelMatrix"))
 setGeneric("getLinearFilter",function(x,object,...) standardGeneric("getLinearFilter"))
+setGeneric("getProcessData",function(object,...) standardGeneric("getProcessData"))
 setGeneric("coefficients<-",function(.Object,value) standardGeneric("coefficients<-"))
 setGeneric("formula<-",function(.Object,value) standardGeneric("formula<-"))
