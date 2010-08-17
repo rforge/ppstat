@@ -1,6 +1,7 @@
 setClass("PointProcessModel",
          representation(
-                        modelMatrix = "Matrix",
+                        modelMatrixEnv = "environment",  ### The modelMatrix as a 'Matrix' is in this environment. Locked after computation
+                        modelMatrixCol = "numeric",      ### The 'active' columns. Initially NULL, set in update and used in getModelMatrix
                         coefficients = "numeric",
                         fixedCoefficients = "list",
                         Omega = "matrix",
@@ -29,7 +30,9 @@ setMethod("initialize","PointProcessModel",
                    fisherInformation=modelMatrix,
                    Omega=NULL,
                    call=NULL,...){
-            .Object@processData <- processData
+            .Object@processDataEnv <- new.env(.GlobalEnv)
+            .Object@processDataEnv$processData <- processData
+            lockEnvironment(.Object@processDataEnv,bindings=TRUE)
             .Object@formula <- formula
             .Object@family <- family
             .Object@support <- support
@@ -51,18 +54,14 @@ setMethod("initialize","PointProcessModel",
             .Object@delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(processData)),
                                                       getId(getContinuousProcess(processData)),
                                                       function(x) c(diff(x),0)),use.names=FALSE))
-            
+
+            .Object@modelMatrixEnv <- new.env(parent=.GlobalEnv)
+            .Object@modelMatrixEnv$modelMatrix <- Matrix()
+            .Object@modelMatrixCol <- NULL
             
             if(modelMatrix) {
               .Object <- computeModelMatrix(.Object)
-              
-## Deprecated code              
-##              if(fisherPreComp) {
-##                .Object@XtX <-  lapply(seq(1,dim(.Object@modelMatrix)[2]),
-##                                       function(i) .Object@modelMatrix[,i] * .Object@modelMatrix)
-##              }
-
-              parDim <- dim(.Object@modelMatrix)[2]
+              parDim <- dim(getModelMatrix(.Object))[2]
 
               if(is.null(coefficients)){
                 coefficients <- rep(0,parDim)
@@ -79,22 +78,6 @@ setMethod("initialize","PointProcessModel",
             
               if(fit){
                 .Object <- glppmFit(.Object,coefficients,fisherInformation=fisherInformation,...)
-##                This is also implemented in glppmFit. One may be concerned with
-##                too much data copying by calling glppmFit at this point, but it seems
-##                easier to maintain code if we have the actual optimization in one place only.
-##                The code below may be outdated - compare to glppmFit.
-##                mll <- function(par,...) computeMinusLogLikelihood(.Object,par,...)
-##                dmll <- function(par,...) computeDMinusLogLikelihood(.Object,par,...)
-                
-##                 .Object@optimResult <- optim(coefficients,mll,gr=dmll,method="BFGS",...)
-##                 .Object@coefficients <- .Object@optimResult$par
-##                 names(.Object@coefficients) <- dimnames(.Object@modelMatrix)[[2]]
-##                 if(fisherInformation) {
-##                   vcov <- solve(computeDDMinusLogLikelihood(.Object))
-##                   rownames(vcov) <- names(.Object@coefficients)
-##                   colnames(vcov) <- names(.Object@coefficients)
-##                   .Object@var <- (vcov + t(vcov))/2   ## To assure symmetry
-##                }
               }
             }
             
@@ -107,9 +90,11 @@ setMethod("initialize","PointProcessModel",
 setMethod("subset","PointProcessModel",
           function(x,...){
             pointProcessModel <- new("PointProcessModel",
-                                     processData=subset(x@processData,...),
-                                     formula=object@formula,
-                                     family=object@family)
+                                     processData = subset(getProcessData(x),...),
+                                     formula = object@formula,
+                                     family = object@family,
+                                     Delta = object@Delta,
+                                     support = object@support)
             return(pointProcessModel)
           }
           )
@@ -118,7 +103,11 @@ setMethod("subset","PointProcessModel",
 
 setMethod("getModelMatrix","PointProcessModel",
           function(object,...){
-            return(object@modelMatrix)
+            if(is.null(object@modelMatrixCol)) {
+              return(object@modelMatrixEnv$modelMatrix)
+            } else {
+              return(object@modelMatrixEnv$modelMatrix[,object@modelMatrixCol])
+            }
           }
           )
 
@@ -152,8 +141,8 @@ setMethod("computeModelMatrix","PointProcessModel",
             ## argument or extracted from the the ProcessData object (default).
 
             if(is.null(evaluationPositions)) {
-              evalPositions <- tapply(getPosition(getContinuousProcess(object@processData)),
-                                      getId(getContinuousProcess(object@processData)),list)
+              evalPositions <- tapply(getPosition(getContinuousProcess(getProcessData(object))),
+                                      getId(getContinuousProcess(getProcessData(object))),list)
             } else {
               evalPositions <- evaluationPositions
             }
@@ -161,7 +150,7 @@ setMethod("computeModelMatrix","PointProcessModel",
             ## The observed points ('positions') for the marked point process,
             ## the corresponding 'id' labels and 'marks' are extracted.
             
-            markedPointProcess <- getMarkedPointProcess(object@processData)
+            markedPointProcess <- getMarkedPointProcess(getProcessData(object))
             positions <- getPosition(markedPointProcess)
 
             id <- factor(getId(markedPointProcess))
@@ -264,12 +253,12 @@ setMethod("computeModelMatrix","PointProcessModel",
               form <-  as.formula(paste("~",notMarkTerms))
               variables <- all.vars(form)
 
-              if(all(variables %in% c("id",colnames(getValue(getContinuousProcess(object@processData)))))) {
-                values <- data.frame(id=getId(getContinuousProcess(object@processData)))
+              if(all(variables %in% c("id",colnames(getValue(getContinuousProcess(getProcessData(object))))))) {
+                values <- data.frame(id=getId(getContinuousProcess(getProcessData(object))))
                 notIdVariables <- variables[variables != "id"]
 
                 if(length(notIdVariables) > 0) {
-                  tmp <- as.matrix(getValue(getContinuousProcess(object@processData))[,notIdVariables,drop=FALSE])
+                  tmp <- as.matrix(getValue(getContinuousProcess(getProcessData(object)))[,notIdVariables,drop=FALSE])
                   rownames(tmp) <- rownames(values)
                   values <- cbind(values,tmp)
                 }
@@ -280,8 +269,10 @@ setMethod("computeModelMatrix","PointProcessModel",
                 stop(paste("Use of non existing variable(s) in:", form))
               }
             }
-         
-            object@modelMatrix <- cBind(X0,do.call("cBind",design))   
+
+            if(environmentIsLocked(object@modelMatrixEnv)) object@modelMatrixEnv <- new.env(parent=.GlobalEnv)
+            object@modelMatrixEnv$modelMatrix <- cBind(X0,do.call("cBind",design))
+            lockEnvironment(object@modelMatrixEnv,binding=TRUE)
             return(object)
           }
           )
@@ -293,7 +284,7 @@ setMethod("computeLinearPredictor","PointProcessModel",
               coefficients <- coefficients(object)
             } 
                                      
-            eta =  as.numeric(object@modelMatrix %*% coefficients)
+            eta =  as.numeric(getModelMatrix(object) %*% coefficients)
             return(eta)
           }
           )
@@ -314,24 +305,16 @@ setMethod("computeDMinusLogLikelihood","PointProcessModel",
 
             if(object@family@link == "log") {
 
-              dmll <- as.vector(t(exp(eta)*object@delta)%*%object@modelMatrix) -
-                colSums(object@modelMatrix[getMarkTypePosition(object@processData,response),])
-                 
-      # Slower:        
-      #        dmll <-  colSums((exp(eta)*object@delta)*object@modelMatrix) -
-      #         colSums(object@modelMatrix[getMarkTypePosition(object@processData,response),]) 
+              dmll <- as.vector(t(exp(eta)*object@delta)%*%getModelMatrix(object)) -
+                colSums(getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),])
 
             } else {
               
-              etaP <- eta[getMarkTypePosition(object@processData,response)]
-              mmP <- object@modelMatrix[getMarkTypePosition(object@processData,response),]
+              etaP <- eta[getMarkTypePosition(getProcessData(object),response)]
+              mmP <- getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),]
 
-              dmll <-  as.vector(t(object@family@Dphi(eta)*object@delta)%*%object@modelMatrix) -
+              dmll <-  as.vector(t(object@family@Dphi(eta)*object@delta)%*%getModelMatrix(object)) -
                 as.vector(t(object@family@Dphi(etaP)/object@family@phi(etaP))%*%mmP)
-              
-      # Slower:
-      #        dmll <-  colSums((object@family@Dphi(eta)*object@delta)*object@modelMatrix) -
-      #          colSums(object@family@Dphi(etaP)/object@family@phi(etaP)*mmP)
               
             }
             
@@ -351,21 +334,21 @@ setMethod("computeDDMinusLogLikelihood","PointProcessModel",
 
              if(object@family@link == "log"){
 
-               ddmll <-  as(crossprod(object@modelMatrix,exp(eta)*object@delta*object@modelMatrix),"matrix")
+               ddmll <-  as(crossprod(getModelMatrix(object),exp(eta)*object@delta*getModelMatrix(object)),"matrix")
 
              } else if(object@family@link == "identity"){
 
-               etaP <- eta[getMarkTypePosition(object@processData,response)]
-               mmP <- object@modelMatrix[getMarkTypePosition(object@processData,response),]
+               etaP <- eta[getMarkTypePosition(getProcessData(object),response)]
+               mmP <- getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),]
 
                ddmll <-  as(crossprod(mmP,1/object@family@phi(etaP)^2*mmP),"matrix")
 
              } else {
 
-               etaP <- eta[getMarkTypePosition(object@processData,response)]
-               mmP <- object@modelMatrix[getMarkTypePosition(object@processData,response),]
+               etaP <- eta[getMarkTypePosition(getProcessData(object),response)]
+               mmP <- getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),]
 
-               ddmll <-  as(crossprod(object@modelMatrix,object@family@D2phi(eta)*object@delta*object@modelMatrix),"matrix") -
+               ddmll <-  as(crossprod(getModelMatrix(object),object@family@D2phi(eta)*object@delta*getModelMatrix(object)),"matrix") -
                  as(crossprod(mmP,(object@family@D2phi(etaP)*object@family@phi(etaP) - object@family@Dphi(etaP)^2)/object@family@phi(etaP)^2*mmP),"matrix")
 
              }
@@ -387,18 +370,19 @@ setMethod("update","PointProcessModel",
               updatedTerms <- attr(terms(updatedFormula),"term.labels")
               if(attr(terms(updatedFormula),"intercept")==1) updatedTerms <- c(updatedTerms,"Intercept")
 
-              updatedModelMatrixColumns <- sapply(updatedTerms,grep,colnames(object@modelMatrix),fixed=TRUE,simplify=FALSE)
+              ## TODO: The use of grep might be improved to get a better update function
+              
+              updatedModelMatrixColumns <- sapply(updatedTerms,grep,colnames(getModelMatrix(object)),fixed=TRUE,simplify=FALSE)
                             
               if(any(sapply(updatedModelMatrixColumns,function(x) length(x) == 0))) {
                 object <- computeModelMatrix(object)
-                object@coefficients <- rep(0,dim(object@modelMatrix)[2])
+                object@coefficients <- rep(0,dim(getModelMatrix(object))[2])
               } else {
                 col <- sort(unlist(updatedModelMatrixColumns))
                 if(any(attr(terms(object@formula),"order") >= 2)) {
                   warning("Original model specification includes interaction terms. The updated model may not be as desired.")
                 }
-                object@modelMatrix <- object@modelMatrix[,col]
-##                object@XtX <- lapply(seq(along=object@XtX),function(i) object@XtX[[i]][,col]) #Deprecated
+                object@modelMatrixCol <- col
                 if(warmStart) object@coefficients <- initPar <- coefficients(object)[col]
               }
 
@@ -413,13 +397,10 @@ setMethod("update","PointProcessModel",
           }
           )
 
-
-
-
 setMethod("getLinearFilter",c(x="numeric",object="PointProcessModel"),
           function(x,object,...){
 
-            mpp <- getMarkedPointProcess(object@processData)
+            mpp <- getMarkedPointProcess(getProcessData(object))
             evaluations <- as.data.frame(x)
             termLabels <- attr(terms(object@formula),"term.labels")
             i <- 1
@@ -439,7 +420,6 @@ setMethod("getLinearFilter",c(x="numeric",object="PointProcessModel"),
             list(linearFilter=cbind(x, as.data.frame(linearFilter)),se=linearFilterSE)
           }
           )
-
 
 setMethod("plot",signature(x="numeric",y="PointProcessModel"),
           function(x,y,trans=NULL,alpha=0.05,...){
@@ -462,7 +442,7 @@ setMethod("plot",signature(x="numeric",y="PointProcessModel"),
           )
 
 
-### To do: Implement plot based on the precomputed basis matrix
+### TODO: Implement plot based on the precomputed basis matrix
 
 ## setMethod("plot",signature(x="PointProcessModel",y="missing"),
 ##           function(x,y,trans=NULL,alpha=0.05,...){
@@ -503,6 +483,8 @@ setMethod("show","PointProcessModel",
           function(object) print(x=object)
           )
 
+
+### TODO: This should return an S4 object instead with appropriate view method.
 
 setMethod("summary","PointProcessModel",
           function(object,...) {
