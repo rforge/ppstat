@@ -177,6 +177,9 @@ glppmFit <- function(model,initPar=NULL,fisherInformation=TRUE,control=list(),..
   return(model)
 }
 
+### Todo: This should be changed to an S4 method and specialized to the
+### different point process classes.
+
 print.summary.glppm <-  function (x, digits = max(3, getOption("digits") - 3), 
     signif.stars = getOption("show.signif.stars"), ...) 
 {
