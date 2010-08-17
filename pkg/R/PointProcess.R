@@ -1,6 +1,6 @@
 setClass("PointProcess",
          representation(
-                        processData = "ProcessData",
+                        processDataEnv = "environment",  ### The processData as ProcessData is in this environment. Locked after initialization
                         delta = "numeric",
                         formula = "formula",
                         family = "Family",
@@ -24,6 +24,12 @@ setReplaceMethod("formula","PointProcess",
             } else stop("formula needs to be a 'formula'")
 
             return(.Object)
+          }
+          )
+
+setMethod("getProcessData","PointProcess",
+          function(object,...){
+            return(object@processDataEnv$processData)
           }
           )
 
