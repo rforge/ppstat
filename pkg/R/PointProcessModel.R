@@ -82,7 +82,7 @@ pointProcessModel <- function(
                                     getId(getContinuousProcess(data)),
                                     function(x) c(diff(x),0)),use.names=FALSE))
 
-  .Object <- new("PointProcessModel",
+  model <- new("PointProcessModel",
                  processDataEnv = processDataEnv,
                  delta = delta,
                  formula = formula,
@@ -98,10 +98,10 @@ pointProcessModel <- function(
                  ...)
                  
   if(modelMatrix) {
-    .Object <- computeModelMatrix(.Object)
+    model <- computeModelMatrix(model)
   }
 
-  parDim <- dim(getModelMatrix(.Object))[2]
+  parDim <- dim(getModelMatrix(model))[2]
   
   if(missing(coefficients)){
     coefficients <- rep(0,parDim)
@@ -113,14 +113,14 @@ pointProcessModel <- function(
   }            
 
   if(length(fixedCoefficients) != 0) coefficients[fixedCoefficients$which] <- fixedCoefficients$value
-  .Object@fixedCoefficients <- fixedCoefficients
-  .Object@coefficients <- coefficients
+  model@fixedCoefficients <- fixedCoefficients
+  model@coefficients <- coefficients
             
   if(fit){
-    .Object <- glppmFit(.Object,coefficients,fisherInformation=fisherInformation,...)
+    model <- glppmFit(model,coefficients,fisherInformation=fisherInformation,...)
   }
 
-  return(.Object)
+  return(model)
 }
 
 pointProcessSmooth <- function(
@@ -180,7 +180,7 @@ pointProcessSmooth <- function(
                                     getId(getContinuousProcess(data)),
                                     function(x) c(diff(x),0)),use.names=FALSE))
 
-  .Object <- new("PointProcessModel",
+  model <- new("PointProcessModel",
                  processDataEnv = processDataEnv,
                  delta = delta,
                  formula = formula,
@@ -196,10 +196,10 @@ pointProcessSmooth <- function(
                  ...)
                  
   if(modelMatrix) {
-    .Object <- computeModelMatrix(.Object)
+    model <- computeModelMatrix(model)
   }
 
-  parDim <- dim(getModelMatrix(.Object))[2]
+  parDim <- dim(getModelMatrix(model))[2]
   
   if(missing(coefficients)){
     coefficients <- rep(0,parDim)
@@ -211,14 +211,14 @@ pointProcessSmooth <- function(
   }            
 
   if(length(fixedCoefficients) != 0) coefficients[fixedCoefficients$which] <- fixedCoefficients$value
-  .Object@fixedCoefficients <- fixedCoefficients
-  .Object@coefficients <- coefficients
+  model@fixedCoefficients <- fixedCoefficients
+  model@coefficients <- coefficients
             
   if(fit){
-    .Object <- glppmFit(.Object,coefficients,fisherInformation=fisherInformation,...)
+    model <- glppmFit(model,coefficients,fisherInformation=fisherInformation,...)
   }
 
-  return(.Object)
+  return(model)
 }
 
 ## TODO: Implement the stress-release type of model with
@@ -274,11 +274,11 @@ setMethod("subset","PointProcessModel",
 
 
 setMethod("getModelMatrix","PointProcessModel",
-          function(object,...){
-            if(length(object@modelMatrixCol) == 0) {
-              return(object@modelMatrixEnv$modelMatrix)
+          function(model,...){
+            if(length(model@modelMatrixCol) == 0) {
+              return(model@modelMatrixEnv$modelMatrix)
             } else {
-              return(object@modelMatrixEnv$modelMatrix[,object@modelMatrixCol])
+              return(model@modelMatrixEnv$modelMatrix[,model@modelMatrixCol])
             }
           }
           )
@@ -290,25 +290,10 @@ setMethod("coefficients","PointProcessModel",
           }
           )
 
-setReplaceMethod("coefficients","PointProcessModel",
-                 function(.Object,value){
-                   .Object@coefficients <- value
-                   return(.Object)
-                 }
-                 )
-
-setMethod("formula","PointProcessModel",
-          function(x,...){
-            return(x@formula)
-          }
-          )
-
-setReplaceMethod("formula","PointProcessModel",
-                 function(.Object,value){
-                   .Object@formula <- value
-                   .Object@basisEnv <- new.env(parent=.GlobalEnv)
-                   basisEnv$basis <- list()
-                   return(.Object)
+setReplaceMethod("coefficients",c(model="PointProcessModel",value="numeric"),
+                 function(model,value){
+                   model@coefficients <- value
+                   return(model)
                  }
                  )
 
@@ -319,17 +304,17 @@ setMethod("vcov","PointProcessModel",
           )
 
 setMethod("computeModelMatrix","PointProcessModel",
-          function(object,evaluationPositions=NULL,...){
+          function(model,evaluationPositions=NULL,...){
 
-            ## The 'object' of class PointProcessModel contains the data
+            ## The 'model' of class PointProcessModel contains the data
             ## as an object of class ProcessData and the formula for the
             ## model specification. The 'evalPositions' below corresponding to
             ## the model matrix rows are either given by the 'evaluationPositions'
             ## argument or extracted from the the ProcessData object (default).
 
             if(is.null(evaluationPositions)) {
-              evalPositions <- tapply(getPosition(getContinuousProcess(getProcessData(object))),
-                                      getId(getContinuousProcess(getProcessData(object))),list)
+              evalPositions <- tapply(getPosition(getContinuousProcess(getProcessData(model))),
+                                      getId(getContinuousProcess(getProcessData(model))),list)
             } else {
               evalPositions <- evaluationPositions
             }
@@ -337,7 +322,7 @@ setMethod("computeModelMatrix","PointProcessModel",
             ## The observed points ('positions') for the marked point process,
             ## the corresponding 'id' labels and 'marks' are extracted.
             
-            markedPointProcess <- getMarkedPointProcess(getProcessData(object))
+            markedPointProcess <- getMarkedPointProcess(getProcessData(model))
             positions <- getPosition(markedPointProcess)
 
             id <- factor(getId(markedPointProcess))
@@ -350,7 +335,7 @@ setMethod("computeModelMatrix","PointProcessModel",
             ## Each term label (in 'termLabels') is processed below,
             ## and the corresponding columns in the model matrix are computed.
             
-            mt <- terms(object@formula) 
+            mt <- terms(model@formula) 
             termLabels <- attr(mt,"term.labels")
             notMarkTerms <- character()
             
@@ -365,7 +350,7 @@ setMethod("computeModelMatrix","PointProcessModel",
             ## Those terms are collected in 'notMarkTerms' in the loop below.
             
             for(term in termLabels) {
-              if(computeBasis(term,object@basisPoints,object@basisEnv,markLevels))
+              if(computeBasis(term,model@basisPoints,model@basisEnv,markLevels))
                 {
                 ## The call to computeBasis is invoked for its side effect
                 ## of computing the basis evaluations if that is not already
@@ -392,13 +377,13 @@ setMethod("computeModelMatrix","PointProcessModel",
                   ## Is this the right place to order the observed positions?
                   designList[[i]] <- Matrix(.Call("computeModelMatrix",
                                                   evalPositions[[i]],
-                                                  object@basisEnv$basis[[term]],
-                                                  object@Delta,
+                                                  model@basisEnv$basis[[term]],
+                                                  model@Delta,
                                                   posi,
                                                   PACKAGE="ppstat"),sparse=TRUE)
                 }
                 design[[term]] <- do.call("rBind",designList)
-                colnames(design[[term]]) <- colnames(object@basisEnv$basis[[term]])
+                colnames(design[[term]]) <- colnames(model@basisEnv$basis[[term]])
 
               } else {
                 ## The term does not involve marks
@@ -422,12 +407,12 @@ setMethod("computeModelMatrix","PointProcessModel",
               form <-  as.formula(paste("~",notMarkTerms))
               variables <- all.vars(form)
 
-              if(all(variables %in% c("id",colnames(getValue(getContinuousProcess(getProcessData(object))))))) {
-                values <- data.frame(id=getId(getContinuousProcess(getProcessData(object))))
+              if(all(variables %in% c("id",colnames(getValue(getContinuousProcess(getProcessData(model))))))) {
+                values <- data.frame(id=getId(getContinuousProcess(getProcessData(model))))
                 notIdVariables <- variables[variables != "id"]
 
                 if(length(notIdVariables) > 0) {
-                  tmp <- as.matrix(getValue(getContinuousProcess(getProcessData(object)))[,notIdVariables,drop=FALSE])
+                  tmp <- as.matrix(getValue(getContinuousProcess(getProcessData(model)))[,notIdVariables,drop=FALSE])
                   rownames(tmp) <- rownames(values)
                   values <- cbind(values,tmp)
                 }
@@ -439,22 +424,22 @@ setMethod("computeModelMatrix","PointProcessModel",
               }
             }
 
-            if(environmentIsLocked(object@modelMatrixEnv)) object@modelMatrixEnv <- new.env(parent=.GlobalEnv)
-            object@modelMatrixEnv$modelMatrix <- cBind(X0,do.call("cBind",design))
-            lockEnvironment(object@modelMatrixEnv,binding=TRUE)
-            lockEnvironment(object@basisEnv,binding=TRUE)            
-            return(object)
+            if(environmentIsLocked(model@modelMatrixEnv)) model@modelMatrixEnv <- new.env(parent=.GlobalEnv)
+            model@modelMatrixEnv$modelMatrix <- cBind(X0,do.call("cBind",design))
+            lockEnvironment(model@modelMatrixEnv,binding=TRUE)
+            lockEnvironment(model@basisEnv,binding=TRUE)            
+            return(model)
           }
           )
 
             
 setMethod("computeLinearPredictor","PointProcessModel",
-          function(object,coefficients=NULL,...){
+          function(model,coefficients=NULL,...){
             if(is.null(coefficients)) {
-              coefficients <- coefficients(object)
+              coefficients <- coefficients(model)
             } 
                                      
-            eta =  as.numeric(getModelMatrix(object) %*% coefficients)
+            eta =  as.numeric(getModelMatrix(model) %*% coefficients)
             return(eta)
           }
           )
@@ -462,29 +447,29 @@ setMethod("computeLinearPredictor","PointProcessModel",
 setMethod("predict","PointProcessModel",
           function(object,...) {
             eta <- computeLinearPredictor(object,...)
-            return(object@family@phi(eta))
+            return(model@family@phi(eta))
           }
           )
 
 setMethod("computeDMinusLogLikelihood","PointProcessModel",
-          function(object,coefficients=NULL,...){
-            eta <- computeLinearPredictor(object,coefficients,...)
-             if(attr(terms(object@formula),"response") != 0) {
-              response <- all.vars(object@formula,unique=FALSE)[attr(terms(object@formula),"response")]
+          function(model,coefficients=NULL,...){
+            eta <- computeLinearPredictor(model,coefficients,...)
+             if(attr(terms(model@formula),"response") != 0) {
+              response <- all.vars(model@formula,unique=FALSE)[attr(terms(model@formula),"response")]
             } else stop("no response variable specified")
 
-            if(object@family@link == "log") {
+            if(model@family@link == "log") {
 
-              dmll <- as.vector(t(exp(eta)*object@delta)%*%getModelMatrix(object)) -
-                colSums(getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),])
+              dmll <- as.vector(t(exp(eta)*model@delta)%*%getModelMatrix(model)) -
+                colSums(getModelMatrix(model)[getMarkTypePosition(getProcessData(model),response),])
 
             } else {
               
-              etaP <- eta[getMarkTypePosition(getProcessData(object),response)]
-              mmP <- getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),]
+              etaP <- eta[getMarkTypePosition(getProcessData(model),response)]
+              mmP <- getModelMatrix(model)[getMarkTypePosition(getProcessData(model),response),]
 
-              dmll <-  as.vector(t(object@family@Dphi(eta)*object@delta)%*%getModelMatrix(object)) -
-                as.vector(t(object@family@Dphi(etaP)/object@family@phi(etaP))%*%mmP)
+              dmll <-  as.vector(t(model@family@Dphi(eta)*model@delta)%*%getModelMatrix(model)) -
+                as.vector(t(model@family@Dphi(etaP)/model@family@phi(etaP))%*%mmP)
               
             }
             
@@ -496,30 +481,30 @@ setMethod("computeDMinusLogLikelihood","PointProcessModel",
 
 
 setMethod("computeDDMinusLogLikelihood","PointProcessModel",
-          function(object,coefficients=NULL,...){
-            eta <- computeLinearPredictor(object,coefficients,...)
-             if(attr(terms(object@formula),"response") != 0) {
-              response <- all.vars(object@formula,unique=FALSE)[attr(terms(object@formula),"response")]
+          function(model,coefficients=NULL,...){
+            eta <- computeLinearPredictor(model,coefficients,...)
+             if(attr(terms(model@formula),"response") != 0) {
+              response <- all.vars(model@formula,unique=FALSE)[attr(terms(model@formula),"response")]
             } else stop("no response variable specified")
 
-             if(object@family@link == "log"){
+             if(model@family@link == "log"){
 
-               ddmll <-  as(crossprod(getModelMatrix(object),exp(eta)*object@delta*getModelMatrix(object)),"matrix")
+               ddmll <-  as(crossprod(getModelMatrix(model),exp(eta)*model@delta*getModelMatrix(model)),"matrix")
 
-             } else if(object@family@link == "identity"){
+             } else if(model@family@link == "identity"){
 
-               etaP <- eta[getMarkTypePosition(getProcessData(object),response)]
-               mmP <- getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),]
+               etaP <- eta[getMarkTypePosition(getProcessData(model),response)]
+               mmP <- getModelMatrix(model)[getMarkTypePosition(getProcessData(model),response),]
 
-               ddmll <-  as(crossprod(mmP,1/object@family@phi(etaP)^2*mmP),"matrix")
+               ddmll <-  as(crossprod(mmP,1/model@family@phi(etaP)^2*mmP),"matrix")
 
              } else {
 
-               etaP <- eta[getMarkTypePosition(getProcessData(object),response)]
-               mmP <- getModelMatrix(object)[getMarkTypePosition(getProcessData(object),response),]
+               etaP <- eta[getMarkTypePosition(getProcessData(model),response)]
+               mmP <- getModelMatrix(model)[getMarkTypePosition(getProcessData(model),response),]
 
-               ddmll <-  as(crossprod(getModelMatrix(object),object@family@D2phi(eta)*object@delta*getModelMatrix(object)),"matrix") -
-                 as(crossprod(mmP,(object@family@D2phi(etaP)*object@family@phi(etaP) - object@family@Dphi(etaP)^2)/object@family@phi(etaP)^2*mmP),"matrix")
+               ddmll <-  as(crossprod(getModelMatrix(model),model@family@D2phi(eta)*model@delta*getModelMatrix(model)),"matrix") -
+                 as(crossprod(mmP,(model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2*mmP),"matrix")
 
              }
             
@@ -531,66 +516,66 @@ setMethod("computeDDMinusLogLikelihood","PointProcessModel",
 
 setMethod("update","PointProcessModel",
           function(object,...){
-            .local <- function(object,formula,fisherInformation=TRUE,warmStart=TRUE,fixedPar=list(),...){
+            .local <- function(model,formula,fisherInformation=TRUE,warmStart=TRUE,fixedPar=list(),...){
 
-              updatedFormula <- update(formula(object),formula)
-              formula(object) <- updatedFormula
+              updatedFormula <- update(formula(model),formula)
+              formula(model) <- updatedFormula
 
               updatedTerms <- attr(terms(updatedFormula),"term.labels")
               if(attr(terms(updatedFormula),"intercept")==1) updatedTerms <- c(updatedTerms,"Intercept")
 
               ## TODO: The use of grep might be improved to get a better update function
               
-              updatedModelMatrixColumns <- sapply(updatedTerms,grep,colnames(getModelMatrix(object)),fixed=TRUE,simplify=FALSE)
+              updatedModelMatrixColumns <- sapply(updatedTerms,grep,colnames(getModelMatrix(model)),fixed=TRUE,simplify=FALSE)
                             
               if(any(sapply(updatedModelMatrixColumns,function(x) length(x) == 0))) {
-                object <- computeModelMatrix(object)
-                coefficients(object) <- rep(0,dim(getModelMatrix(object))[2])
+                model <- computeModelMatrix(model)
+                coefficients(model) <- rep(0,dim(getModelMatrix(model))[2])
               } else {
                 col <- sort(unlist(updatedModelMatrixColumns))
-                if(any(attr(terms(object@formula),"order") >= 2)) {
+                if(any(attr(terms(model@formula),"order") >= 2)) {
                   warning("Original model specification includes interaction terms. The updated model may not be as desired.")
                 }
-                object@modelMatrixCol <- col
-                if(warmStart) object@coefficients <- coefficients(object)[col]
+                model@modelMatrixCol <- col
+                if(warmStart) model@coefficients <- coefficients(model)[col]
               }
 
-              if(length(fixedPar) != 0) object@coefficients[fixedPar$which] <- fixedPar$value
-              object@fixedCoefficients <- fixedPar
+              if(length(fixedPar) != 0) model@coefficients[fixedPar$which] <- fixedPar$value
+              model@fixedCoefficients <- fixedPar
                           
-              return(glppmFit(object,initPar=coefficients(object),fisherInformation=fisherInformation,...))
+              return(glppmFit(model,initPar=coefficients(model),fisherInformation=fisherInformation,...))
             }
-            object@call <- match.call()
+            model@call <- match.call()
             .local(object,...)
           }
           )
 
-setMethod("getLinearFilter",c(object="PointProcessModel",se="logical"),
-          function(object,se=FALSE,nr=NULL...){
+setMethod("getLinearFilter",c(model="PointProcessModel",se="logical"),
+          function(model,se=FALSE,nr=NULL...){
             
-            markLevels <- levels(getMarkType(getMarkedPointProcess(getProcessData(object))))
-            termLabels <- attr(terms(formula(object)),"term.labels")
+            markLevels <- levels(getMarkType(getMarkedPointProcess(getProcessData(model))))
+            termLabels <- attr(terms(formula(model)),"term.labels")
 
             linearFilter <- list()
             if(isTRUE(se)) linearFilterSE <- list()
-            if(is.null(nr)) nr <- dim(object@basisEnv$basis[[term]])[1]
+            if(is.null(nr)) nr <- dim(model@basisEnv$basis[[term]])[1]
             
             for(term in termLabels){
-              if(computeBasis(term,object@basisPoints,object@basisEnv,markLevels))
+              if(computeBasis(term,model@basisPoints,model@basisEnv,markLevels))
                 {
-                  i <- seq_len(nr)*floor(dim(object@basisEnv$basis[[term]])[1]/nr)
-                  design <- object@basisEnv$basis[[term]][i,]
-                  linearFilter[[term]] <- design %*% coefficients(object)[dimnames(design)[[2]]]
+                  i <- seq_len(nr)*floor(dim(model@basisEnv$basis[[term]])[1]/nr)
+                  design <- model@basisEnv$basis[[term]][i,]
+                  linearFilter[[term]] <- design %*% coefficients(model)[dimnames(design)[[2]]]
                   if(isTRUE(se))
-                    linearFilterSE[[term]] <- sqrt(rowSums(design %*% vcov(object)[dimnames(design)[[2]],dimnames(design)[[2]]] * design))
+                    linearFilterSE[[term]] <- sqrt(rowSums(design %*% vcov(model)[dimnames(design)[[2]],dimnames(design)[[2]]] * design))
                 }
             }
             
-            lockEnvironment(object@basisEnv,bindings=TRUE)
+            lockEnvironment(model@basisEnv,bindings=TRUE)
             if(isTRUE(se)) {
-              return(list(linearFilter=cbind(data.frame(x=object@basisPoints[i]), as.data.frame(linearFilter)),se=linearFilterSE))
+              return(list(linearFilter=cbind(data.frame(x=model@basisPoints[i]), as.data.frame(linearFilter)),se=linearFilterSE))
             } else {
-              return(cbind(data.frame(x=object@basisPoints[i]), as.data.frame(linearFilter)))
+              return(cbind(data.frame(x=model@basisPoints[i]), as.data.frame(linearFilter)))
             }
               
           }
@@ -631,11 +616,12 @@ setMethod("print","PointProcessModel",
           )
 
 setMethod("show","PointProcessModel",
-          function(object) print(x=object)
+          function(model) print(x=model)
           )
 
 
 ### TODO: This should return an S4 object instead with appropriate view method.
+### TODO: Implementation of standard model diagnostics.
 
 setMethod("summary","PointProcessModel",
           function(object,...) {
@@ -648,7 +634,7 @@ setMethod("summary","PointProcessModel",
             result$convergence <- object@optimResult$convergence
             result$aic <- 2*(result$mll +  result$df)
 
-            # Some way of summarizing 'residuals'
+            ## TODO: Implement some way of summarizing 'residuals'
 
             se <- sqrt(diag(object@var))
             z <- object@coefficients/se
@@ -676,6 +662,122 @@ setMethod("summary","PointProcessModel",
           }
           )
 
+setMethod("computeVar","PointProcessModel",
+          function(model,...){
+            if(model@fisherInformation) {
+              vcovInv <- computeDDMinusLogLikelihood(model)
+              if(model@penalization) vcovInv <- vcovInv + 2*Omega ## TODO: This requires some more thought ....
+              vcov <- matrix(0,nrow=dim(vcovInv)[1],ncol=dim(vcovInv)[2])
+              
+              if(length(model@fixedCoefficients) == 0) {
+                tmp <- try(solve(vcovInv),silent=TRUE)
+                if(class(tmp)=="try-error") {
+                  cat("Fisher information singular:\n",tmp[1]," Check convergence status or parameterization\n.")
+                } else {
+                  vcov <- tmp
+                }
+              } else {
+                tmp <- try(solve(vcovInv[-model@fixedCoefficients$which,-model@fixedCoefficients$which]),silent=TRUE)
+                if(class(tmp)=="try-error") {
+                  cat("Fisher information singular:\n",tmp[1],"\nCheck convergence status and parameterization.")
+                } else {
+                  vcov[-model@fixedCoefficients$which,-model@fixedCoefficients$which] <- tmp
+                }
+              }
+              rownames(vcov) <- names(model@coefficients)
+              colnames(vcov) <- names(model@coefficients)
+              model@var <- (vcov + t(vcov))/2   ## To assure symmetry
+            } else {
+              model@var <- matrix(0,length(model@coefficients),length(model@coefficients))
+            }
+            return(model)
+          }
+          )
+                   
+setMethod("glppmFit",c(model="PointProcessModel",initPar="numeric"),
+          function(model,initPar,control=list(),...) {
+            nrPar <- parDim <- dim(getModelMatrix(model))[2]
+            fixedPar <- model@fixedCoefficients
+            Omega <- model@Omega
 
-
+            control <- c(list(maxit=1000),control)
             
+            if(length(fixedPar) != 0) {
+              nrPar <- parDim -length(fixedPar$which)
+              tmpPar <- numeric(parDim)
+              tmpPar[fixedPar$which] <- fixedPar$value
+            }
+
+### Setting up the initial parameters
+
+            if(is.null(initPar)){
+              if(length(coefficients(model)) == parDim) {
+                if(length(fixedPar) != 0) {
+                  initPar <- coefficients(model)[-fixedPar$which]
+                } else {
+                  initPar <- coefficients(model)
+                }      
+              } else {
+                initPar <- rep(0,nrPar)
+              }
+            } else { #initPar is not NULL
+              if(length(initPar) != parDim) {
+                initPar <- rep(0,nrPar)
+                warning("Incorrect length of initial parameter vector. Initial parameters all set to 0.")
+              } else {
+                if(length(fixedPar) != 0) { 
+                  initPar <- initPar[-fixedPar$which]
+                }
+              }
+            }
+
+### Setting up the objective function to minimize
+
+            if(!model@penalization){
+              if(length(fixedPar) == 0) {
+                mll <- function(par,...) computeMinusLogLikelihood(model,par,...)
+                dmll <- function(par,...) computeDMinusLogLikelihood(model,par,...)
+              } else {
+                mll <- function(par,...) {
+                  tmpPar[-fixedPar$which] <- par
+                  computeMinusLogLikelihood(model,tmpPar,...)
+                }
+                dmll <- function(par,...) {
+                  tmpPar[-fixedPar$which] <- par
+                  computeDMinusLogLikelihood(model,tmpPar,...)[-fixedPar$which]
+                }
+              }
+            } else {
+              if(length(fixedPar) == 0) {
+                mll <- function(par,...) computeMinusLogLikelihood(model,par,...) + par %*% Omega %*% par
+                dmll <- function(par,...) computeDMinusLogLikelihood(model,par,...) + 2*par %*% Omega
+              } else {
+                mll <- function(par,...) {
+                  tmpPar[-fixedPar$which] <- par
+                  computeMinusLogLikelihood(model,tmpPar,...) + par %*% Omega[-fixedPar$which,-fixedPar$which] %*% par
+                }
+                dmll <- function(par,...) {
+                  tmpPar[-fixedPar$which] <- par
+                  computeDMinusLogLikelihood(model,tmpPar,...)[-fixedPar$which] + 2*par %*% Omega[-fixedPar$which,-fixedPar$which]
+                }
+              }
+            }
+
+### The actual minimization
+            
+            model@optimResult <- optim(initPar,mll,gr=dmll,method="BFGS",control=control,...)
+
+            if(length(fixedPar) == 0) {
+              model@coefficients <- model@optimResult$par
+            } else {
+              model@coefficients[-fixedPar$which] <- model@optimResult$par
+              model@coefficients[fixedPar$which] <- fixedPar$value
+            }
+            names(model@coefficients) <- dimnames(getModelMatrix(model))[[2]]
+
+### Computation of the estimated covariance matrix
+
+            model <- computeVar(model)
+            return(model)
+          }
+          )            

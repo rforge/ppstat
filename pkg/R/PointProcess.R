@@ -10,43 +10,42 @@ setClass("PointProcess",
                         "VIRTUAL")
          )
 
+
 setMethod("formula","PointProcess",
           function(x,...){
             return(x@formula)
           }
           )
 
-setReplaceMethod("formula","PointProcess",
-          function(.Object,value){
-                        
-            if(is.formula(value)) {
-              .Object@formula <- value
-            } else stop("formula needs to be a 'formula'")
-
-            return(.Object)
-          }
-          )
+setReplaceMethod("formula",c(model="PointProcess",value="formula"),
+                 function(model,value){
+                   model@formula <- value
+                   model@basisEnv <- new.env(parent=.GlobalEnv)
+                   basisEnv$basis <- list()
+                   return(model)
+                 }
+                 )
 
 setMethod("getProcessData","PointProcess",
-          function(object,...){
-            return(object@processDataEnv$processData)
+          function(model,...){
+            return(model@processDataEnv$processData)
           }
           )
 
 setMethod("computeMinusLogLikelihood","PointProcess",
-          function(object,coefficients=NULL,...){
-            eta <- computeLinearPredictor(object,coefficients,...)
-             if(attr(terms(object@formula),"response") != 0) {
-              response <- all.vars(object@formula,unique=FALSE)[attr(terms(object@formula),"response")]
+          function(model,coefficients=NULL,...){
+            eta <- computeLinearPredictor(model,coefficients,...)
+             if(attr(terms(model@formula),"response") != 0) {
+              response <- all.vars(model@formula,unique=FALSE)[attr(terms(model@formula),"response")]
             } else stop("no response variable specified")
             
 
-            if(object@family@link == "log"){
-              mll <-  sum(exp(eta)*object@delta) -
-                sum(eta[getMarkTypePosition(getProcessData(object),response)]) 
+            if(model@family@link == "log"){
+              mll <-  sum(exp(eta)*model@delta) -
+                sum(eta[getMarkTypePosition(getProcessData(model),response)]) 
             } else {
-              mll <-  sum(object@family@phi(eta)*object@delta) -
-                sum(log(object@family@phi(eta[getMarkTypePosition(getProcessData(object),response)]))) 
+              mll <-  sum(model@family@phi(eta)*model@delta) -
+                sum(log(model@family@phi(eta[getMarkTypePosition(getProcessData(model),response)]))) 
             }
             
             return(mll)

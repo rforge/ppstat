@@ -87,21 +87,21 @@ setMethod("coefficients","PointProcessKernel",
           )
 
 setMethod("computeRecurrenceMatrix","PointProcessKernel",
-          function(object,evaluationPositions=NULL,...){
+          function(model,evaluationPositions=NULL,...){
 
-            fR <- function(s) s*as.numeric(s >= object@support[1] & s <= object@support[2])
+            fR <- function(s) s*as.numeric(s >= model@support[1] & s <= model@support[2])
 
             design <- list()
             designList <- list()
             
             if(is.null(evaluationPositions)) {
-              evalPositions <- tapply(getPosition(getContinuousProcess(getProcessData(object))),
-                                      getId(getContinuousProcess(getProcessData(object))),list)
+              evalPositions <- tapply(getPosition(getContinuousProcess(getProcessData(model))),
+                                      getId(getContinuousProcess(getProcessData(model))),list)
             } else {
               evalPositions <- evaluationPositions
             }
             
-            markedPointProcess <- getMarkedPointProcess(getProcessData(object))
+            markedPointProcess <- getMarkedPointProcess(getProcessData(model))
             positions <- getPosition(markedPointProcess)
 
             id <- factor(getId(markedPointProcess))
@@ -110,7 +110,7 @@ setMethod("computeRecurrenceMatrix","PointProcessKernel",
             marks <- getMarkType(markedPointProcess)
             markLevels <- levels(marks)
 
-            mt <- terms(object@formula) 
+            mt <- terms(model@formula) 
             termLabels <- attr(mt,"term.labels")
             notMarkTerms <- character()
             
@@ -163,9 +163,9 @@ setMethod("computeRecurrenceMatrix","PointProcessKernel",
 ##               design[[k]] <- do.call(cBind, designList[[labels]])
 ##               }
 
-            object@recurrenceMatrix <- designList
-            object@labels <- list(termLabels = termLabels,idLevels=idLevels)
-###            object@integrationMatrix <- integration
+            model@recurrenceMatrix <- designList
+            model@labels <- list(termLabels = termLabels,idLevels=idLevels)
+###            model@integrationMatrix <- integration
 
 ### Model matrix computations for the id and continuous time process
 ### components
@@ -179,45 +179,45 @@ setMethod("computeRecurrenceMatrix","PointProcessKernel",
             if(length(notMarkTerms) > 0){
               form <-  as.formula(paste("~",notMarkTerms))
               variables <- all.vars(form)
-              if(all(variables %in% c("id",colnames(getValue(getContinuousProcess(getProcessData(object))))))) {
-                values <- data.frame(id=getId(getContinuousProcess(getProcessData(object))))
+              if(all(variables %in% c("id",colnames(getValue(getContinuousProcess(getProcessData(model))))))) {
+                values <- data.frame(id=getId(getContinuousProcess(getProcessData(model))))
                 notIdVariables <- variables[variables != "id"]
                 if(length(notIdVariables) > 0) {
-                  tmp <- as.matrix(getValue(getContinuousProcess(getProcessData(object)))[,notIdVariables,drop=FALSE])
+                  tmp <- as.matrix(getValue(getContinuousProcess(getProcessData(model)))[,notIdVariables,drop=FALSE])
                   rownames(tmp) <- rownames(values)
                   values <- cbind(values,tmp)
                 }
                 tmp <- model.matrix(form,values)
-                object@modelMatrix <- Matrix(tmp,dimnames=dimnames(tmp))
+                model@modelMatrix <- Matrix(tmp,dimnames=dimnames(tmp))
               } else {
                 stop(paste("Use of non existing variable(s) in:", form))
               }
             }
 
-            object@coefficients <- rep(0,dim(object@modelMatrix)[2])
+            model@coefficients <- rep(0,dim(model@modelMatrix)[2])
             
-            return(object)
+            return(model)
           }
           )
             
 setMethod("computeLinearPredictor","PointProcessKernel",
-          function(object,coefficients=NULL,...){
+          function(model,coefficients=NULL,...){
             if(is.null(coefficients)) {
-              g <- coefficients(object)[[1]]
-              coefficients <- coefficients(object)[[2]]
+              g <- coefficients(model)[[1]]
+              coefficients <- coefficients(model)[[2]]
             } else {
               g <- coefficients[[1]]
-              coefficients <- coefficients(object)[[2]]              
+              coefficients <- coefficients(model)[[2]]              
             }
 
             predictors <- list()
-            for(id in object@labels$idLevels) {
+            for(id in model@labels$idLevels) {
               tmp <- list()
-              for(term in object@labels$termLabels) {
+              for(term in model@labels$termLabels) {
                 label <- paste(term,id,sep="")
-                if(any(label == names(object@recurrenceMatrix))){
-                  tmp[[term]] <- object@recurrenceMatrix[[label]]
-                  lookup <- ceiling(tmp[[term]]@x/object@Delta)
+                if(any(label == names(model@recurrenceMatrix))){
+                  tmp[[term]] <- model@recurrenceMatrix[[label]]
+                  lookup <- ceiling(tmp[[term]]@x/model@Delta)
                   tmp[[term]]@x <- g[lookup,term]
                   tmp[[term]] <- rowSums(tmp[[term]])    ### Is there a performance gain by returning a sparse result?
                                                          ### A sparse result creates problems with computations of row sums below?!
@@ -228,7 +228,7 @@ setMethod("computeLinearPredictor","PointProcessKernel",
               predictors[[id]] <- predictors[[id]] %*% rep(1,dim(predictors[[id]])[2])
             }
 
-            eta =  do.call(c,predictors) + as.numeric(object@modelMatrix %*% coefficients)
+            eta =  do.call(c,predictors) + as.numeric(model@modelMatrix %*% coefficients)
 
             return(eta)
           }
@@ -236,28 +236,28 @@ setMethod("computeLinearPredictor","PointProcessKernel",
 
 
 setMethod("computeDMinusLogLikelihood","PointProcessKernel",
-          function(object,coefficients=NULL,...){
-            eta <- computeLinearPredictor(object,coefficients=NULL,...)
-            if(attr(terms(object@formula),"response") != 0) {
-              response <- all.vars(object@formula,unique=FALSE)[attr(terms(object@formula),"response")]
+          function(model,coefficients=NULL,...){
+            eta <- computeLinearPredictor(model,coefficients=NULL,...)
+            if(attr(terms(model@formula),"response") != 0) {
+              response <- all.vars(model@formula,unique=FALSE)[attr(terms(model@formula),"response")]
             } else stop("no response variable specified")
             
-            seqDelta <- object@Delta*seq(ceiling(object@support[1]/object@Delta),ceiling(object@support[2]/object@Delta))
+            seqDelta <- model@Delta*seq(ceiling(model@support[1]/model@Delta),ceiling(model@support[2]/model@Delta))
             dmll <- NULL ### This is bad, should be fixed!
             
-            if(object@family@link == "log") {
-              mP <- getMarkTypePosition(getProcessData(object),response)
-              weights <- exp(eta)*object@delta
+            if(model@family@link == "log") {
+              mP <- getMarkTypePosition(getProcessData(model),response)
+              weights <- exp(eta)*model@delta
               ones <-  rep(1,length(mP))
               
               for(r in seq(along=seqDelta)){
                 intKernels <- list()
-                for(id in object@labels$idLevels) {
+                for(id in model@labels$idLevels) {
                   tmp <- list()
-                  for(term in object@labels$termLabels) {
+                  for(term in model@labels$termLabels) {
                     label <- paste(term,id,sep="")
-                    if(any(label == names(object@recurrenceMatrix))){
-                      tmp[[term]] <- object@recurrenceMatrix[[label]]
+                    if(any(label == names(model@recurrenceMatrix))){
+                      tmp[[term]] <- model@recurrenceMatrix[[label]]
                       tmp[[term]]@x <- R(tmp[[term]]@x,seqDelta[r])
                       tmp[[term]] <- rowSums(tmp[[term]])   
                     }
@@ -272,11 +272,11 @@ setMethod("computeDMinusLogLikelihood","PointProcessKernel",
 
             } else {
               
-              etaP <- eta[getMarkTypePosition(getProcessData(object),response)]
-              mmP <- object@modelMatrix[getMarkTypePosition(getProcessData(object),response),]
+              etaP <- eta[getMarkTypePosition(getProcessData(model),response)]
+              mmP <- model@modelMatrix[getMarkTypePosition(getProcessData(model),response),]
 
-              dmll <-  colSums((object@family@Dphi(eta)*object@delta)*object@modelMatrix) -
-                colSums(object@family@Dphi(etaP)/object@family@phi(etaP)*mmP)
+              dmll <-  colSums((model@family@Dphi(eta)*model@delta)*model@modelMatrix) -
+                colSums(model@family@Dphi(etaP)/model@family@phi(etaP)*mmP)
               
             }
             
