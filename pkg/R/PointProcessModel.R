@@ -119,7 +119,7 @@ pointProcessModel <- function(
   model@coefficients <- coefficients
             
   if(fit){
-    model <- glppmFit(model,coefficients,...)
+    model <- glppmFit(model,...)
   }
 
   return(model)
@@ -218,7 +218,7 @@ pointProcessSmooth <- function(
   model@coefficients <- coefficients
   
   if(fit){
-    model <- glppmFit(model,coefficients,...)
+    model <- glppmFit(model,...)
   }
 
   return(model)
@@ -535,7 +535,7 @@ setMethod("computeDDMinusLogLikelihood","PointProcessModel",
 
 setMethod("update","PointProcessModel",
           function(object,...){
-            .local <- function(model,formula,warmStart=TRUE,fixedPar=list(),...){
+            .local <- function(model,formula,warmStart = TRUE,fixedCoefficients = list(),...){
 
               termLabels <- attr(terms(formula(model)),"term.labels")
               updatedFormula <- update(formula(model),formula)
@@ -557,10 +557,10 @@ setMethod("update","PointProcessModel",
                 coefficients(model) <- rep(0,dim(getModelMatrix(model))[2])
               }
 
-              if(length(fixedPar) != 0) model@coefficients[fixedPar$which] <- fixedPar$value
-              model@fixedCoefficients <- fixedPar
+              if(length(fixedCoefficients) != 0) model@coefficients[fixedCoefficients$which] <- fixedCoefficients$value
+              model@fixedCoefficients <- fixedCoefficients
                           
-              return(glppmFit(model,initPar=coefficients(model),...))
+              return(glppmFit(model,...))
             }
             object@call <- match.call()
             .local(object,...)
@@ -711,8 +711,8 @@ setMethod("computeVar","PointProcessModel",
           }
           )
                    
-setMethod("glppmFit",c(model="PointProcessModel",initPar="numeric"),
-          function(model,initPar,control=list(),...) {
+setMethod("glppmFit","PointProcessModel",
+          function(model,control=list(),...) {
             nrPar <- parDim <- dim(getModelMatrix(model))[2]
             fixedPar <- model@fixedCoefficients
             Omega <- model@Omega
@@ -724,29 +724,20 @@ setMethod("glppmFit",c(model="PointProcessModel",initPar="numeric"),
               tmpPar <- numeric(parDim)
               tmpPar[fixedPar$which] <- fixedPar$value
             }
-
+            
 ### Setting up the initial parameters
-
-            if(is.null(initPar)){
-              if(length(coefficients(model)) == parDim) {
-                if(length(fixedPar) != 0) {
-                  initPar <- coefficients(model)[-fixedPar$which]
-                } else {
-                  initPar <- coefficients(model)
-                }      
+            
+            if(length(coefficients(model)) == parDim) {
+              if(length(fixedPar) != 0) {
+                initPar <- coefficients(model)[-fixedPar$which]
               } else {
-                initPar <- rep(0,nrPar)
-              }
-            } else { #initPar is not NULL
-              if(length(initPar) != parDim) {
-                initPar <- rep(0,nrPar)
-                warning("Incorrect length of initial parameter vector. Initial parameters all set to 0.")
-              } else {
-                if(length(fixedPar) != 0) { 
-                  initPar <- initPar[-fixedPar$which]
-                }
-              }
+                initPar <- coefficients(model)
+              }    
+            } else {
+              initPar <- rep(0,nrPar)
+              warning("Length of initial parameter vector worng. Initial parameters all set to 0.")
             }
+            
 
 ### Setting up the objective function to minimize
 
