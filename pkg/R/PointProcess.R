@@ -21,7 +21,7 @@ setReplaceMethod("formula",c(model="PointProcess",value="formula"),
                  function(model,value){
                    model@formula <- value
                    model@basisEnv <- new.env(parent=.GlobalEnv)
-                   basisEnv$basis <- list()
+                   model@basisEnv$basis <- list()
                    return(model)
                  }
                  )

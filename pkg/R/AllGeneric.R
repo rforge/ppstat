@@ -11,5 +11,5 @@ setGeneric("getLinearFilter",function(model,se,nr,...) standardGeneric("getLinea
 setGeneric("getProcessData",function(model,...) standardGeneric("getProcessData"))
 setGeneric("coefficients<-",function(model,value,...) standardGeneric("coefficients<-"))
 setGeneric("formula<-",function(model,value,...) standardGeneric("formula<-"))
-setGeneric("glppmFit",function(model,initPar,control,...) standardGeneric("glppmFit"))
+setGeneric("glppmFit",function(model,initPar,control=list(),...) standardGeneric("glppmFit"))
 setGeneric("computeVar",function(model,...) standardGeneric("computeVar"))
