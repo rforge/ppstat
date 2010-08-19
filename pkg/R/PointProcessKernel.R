@@ -258,7 +258,7 @@ setMethod("computeDMinusLogLikelihood","PointProcessKernel",
                     label <- paste(term,id,sep="")
                     if(any(label == names(model@recurrenceMatrix))){
                       tmp[[term]] <- model@recurrenceMatrix[[label]]
-                      tmp[[term]]@x <- R(tmp[[term]]@x,seqDelta[r])
+                      tmp[[term]]@x <- c(tmp[[term]]@x,seqDelta[r])
                       tmp[[term]] <- rowSums(tmp[[term]])   
                     }
                   }

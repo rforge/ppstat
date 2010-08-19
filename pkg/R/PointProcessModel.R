@@ -466,7 +466,7 @@ setMethod("computeLinearPredictor","PointProcessModel",
 setMethod("predict","PointProcessModel",
           function(object,...) {
             eta <- computeLinearPredictor(object,...)
-            return(model@family@phi(eta))
+            return(object@family@phi(eta))
           }
           )
 
@@ -544,7 +544,7 @@ setMethod("update","PointProcessModel",
               if(attr(terms(updatedFormula),"intercept")==1) updatedTermLabel <- c("Intercept",updatedTermLabels)
               
               if(all(updatedTermLabels %in% termLabels)) {
-                col <- which(termLabels[attr(getModelMatrix(tmpPPM),"assign")+1] %in% updatedTermLabels)
+                col <- which(termLabels[attr(getModelMatrix(object),"assign")+1] %in% updatedTermLabels)
                 if(any(attr(terms(formula(model)),"order") >= 2)) {
                   warning(paste(c(object@call,"Original model formula includes interaction terms. Check that updated model is as expected."),collapse="\n"),call.=FALSE)
                 }
@@ -633,7 +633,7 @@ setMethod("print","PointProcessModel",
           )
 
 setMethod("show","PointProcessModel",
-          function(model) print(x=model)
+          function(object) print(x=object)
           )
 
 
@@ -683,7 +683,7 @@ setMethod("computeVar","PointProcessModel",
           function(model,...){
             if(attr(vcov(model),"method") == "Fisher") {
               vcovInv <- computeDDMinusLogLikelihood(model)
-              if(model@penalization) vcovInv <- vcovInv + 2*Omega ## TODO: This requires some more thought ....
+              if(model@penalization) vcovInv <- vcovInv + 2*model@Omega ## TODO: This requires some more thought ....
               vcov <- matrix(0,nrow=dim(vcovInv)[1],ncol=dim(vcovInv)[2])
               
               if(length(model@fixedCoefficients) == 0) {
