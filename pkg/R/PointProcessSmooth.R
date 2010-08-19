@@ -4,9 +4,6 @@
 ### validation or ?) penalty parameter selection.
 
 setClass("PointProcessSmooth",
-         representation(
-                     
-                        ),
          contains="PointProcessModel"
          )
 
@@ -25,7 +22,9 @@ setMethod("initialize","PointProcessSmooth",
                    fisherInformation=modelMatrix,
                    Omega=NULL,
                    call=NULL,...){
-            .Object@processData <- processData
+            .Object@processDataEnv <- new.env(.GlobalEnv)
+            .Object@processDataEnv$processData <- processData
+            lockEnvironment(.Object@processDataEnv,bindings=TRUE)
             .Object@formula <- formula
             .Object@family <- family
             .Object@support <- support
@@ -44,8 +43,8 @@ setMethod("initialize","PointProcessSmooth",
               .Object@penalization <- TRUE
             } else if(is.null(Omega)) .Object@penalization <- FALSE
            
-            .Object@delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(processData)),
-                                                      getId(getContinuousProcess(processData)),
+            .Object@delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(getProcessData(.Object))),
+                                                      getId(getContinuousProcess(getProcessData(.Object))),
                                                       function(x) c(diff(x),0)),use.names=FALSE))
             
             

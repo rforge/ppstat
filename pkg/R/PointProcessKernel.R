@@ -49,8 +49,8 @@ setMethod("initialize","PointProcessKernel",
               .Object@penalization <- TRUE
             } else if(is.null(Omega)) .Object@penalization <- FALSE
             
-            .Object@delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(processData)),
-                                                      getId(getContinuousProcess(processData)),
+            .Object@delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(getProcessData(.Object))),
+                                                      getId(getContinuousProcess(getProcessData(.Object))),
                                                       function(x) c(diff(x),0)),use.names=FALSE))
             
             if(recurrenceMatrix) {

@@ -1,101 +1,273 @@
 setClass("PointProcessModel",
          representation(
-                        modelMatrixEnv = "environment",  ### The modelMatrix as a 'Matrix' is in this environment. Locked after computation
-                        modelMatrixCol = "numeric",      ### The 'active' columns. Initially NULL, set in update and used in getModelMatrix
+                        modelMatrixEnv = "environment",  ### The modelMatrix as a 'Matrix' is in this environment. Locked after computation.
+                        modelMatrixCol = "numeric",      ### The 'active' columns. Initially NULL, set in update and used in getModelMatrix.
                         coefficients = "numeric",
                         fixedCoefficients = "list",
                         Omega = "matrix",
                         penalization = "logical",
                         var = "matrix",
                         optimResult = "list",
-                        basis = "Matrix",              ### Evaluations of basis functions in support at Delta-grid values
-                        storeBasis = "logical",        ### Should the basis evalutations be stored in the basis matrix
-                        basisPoints = "numeric"        ### Evaluation points of basis functions in support at Delta-grid values
+                        basisEnv = "environment",      ### Evaluations of basis functions in support at Delta-grid values are in 
+                                                       ### the list 'basis' in this environment.
+                        basisPoints = "numeric"        ### The 'basisPoints' in contains the evaluation points for the basis functions.
                         ),
+         validity = function(object) {
+           if(isTRUE(object@penalization) && !isTRUE(all.equal(min(eigen(object@Omega,only.values=TRUE,symmetric=TRUE)$values,0),0)))
+             stop("Penalization matrix 'Omega' is not positive semi-definite.")
+           if(isTRUE(object@support[2] - object@support[1] <= 0))
+             stop("Variable 'support' has to be either a positive number or a positive interval.")
+           if(isTRUE(object@Delta > object@support[2] - object@support[1]))
+             stop("Variable 'Delta' has to be smaller than the length of the support")
+           return(TRUE)
+         },
          contains="PointProcess"
          )
 
-setMethod("initialize","PointProcessModel",
-          function(.Object,
-                   processData,
-                   formula,
-                   family,
-                   Delta,
-                   support,
-                   storeBasis=TRUE,
-                   fit=TRUE,
-                   coefficients=NULL,
-                   fixedCoefficients=list(),
-                   modelMatrix=TRUE,
-                   fisherInformation=modelMatrix,
-                   Omega=NULL,
-                   call=NULL,...){
-            .Object@processDataEnv <- new.env(.GlobalEnv)
-            .Object@processDataEnv$processData <- processData
-            lockEnvironment(.Object@processDataEnv,bindings=TRUE)
-            .Object@formula <- formula
-            .Object@family <- family
-            .Object@support <- support
-            .Object@Delta <- Delta
-            .Object@basisPoints <- seq(support[1],support[2],Delta)
-            .Object@storeBasis <- storeBasis
-            if(!is.null(Omega)) {
-              if(any(Omega != t(Omega))) {
-                Omega <- (Omega + t(Omega))/2
-                warning("Penalization matrix Omega is not symmetric and is replaced by  (Omega + t(Omega))/2.")
-              }
-              if(!isTRUE(all.equal(min(eigen(Omega,only.values=TRUE,symmetric=TRUE)$values,0),0))) {
-                stop("Penalization matrix Omega is not positive semi-definite.")
-              }
-              .Object@Omega <- Omega
-              .Object@penalization <- TRUE
-            } else if(is.null(Omega)) .Object@penalization <- FALSE
-           
-            .Object@delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(processData)),
-                                                      getId(getContinuousProcess(processData)),
-                                                      function(x) c(diff(x),0)),use.names=FALSE))
 
-            .Object@modelMatrixEnv <- new.env(parent=.GlobalEnv)
-            .Object@modelMatrixEnv$modelMatrix <- Matrix()
-            .Object@modelMatrixCol <- NULL
+pointProcessModel <- function(
+                              formula,
+                              data,
+                              family,
+                              support,
+                              Delta,
+                              basisPoints,
+                              Omega,
+                              coefficients,
+                              fixedCoefficients = list(),
+                              fit = TRUE,
+                              modelMatrix = TRUE,
+                              fisherInformation = modelMatrix
+                              ,...) {
+  
+  processDataEnv <- new.env(.GlobalEnv)
+  processDataEnv$processData <- data
+  lockEnvironment(processDataEnv,bindings=TRUE)
+
+  modelMatrixEnv <- new.env(parent=.GlobalEnv)
+  modelMatrixEnv$modelMatrix <- Matrix()
+
+  ## TODO: Check if ... has a basisEnv, in which case that environment is used instead.
+  basisEnv <- new.env(parent=.GlobalEnv)
+  basisEnv$basis <- list()
+
+  if(missing(Omega))
+    {
+      Omega <- matrix()
+      penalization <- FALSE
+    } else {
+      if(any(Omega != t(Omega)))
+        {
+          Omega <- (Omega + t(Omega))/2
+          warning("Penalization matrix Omega is not symmetric and is replaced by (Omega + t(Omega))/2.")
+        }
+      penalization <- TRUE
+    }
+
+  if(missing(basisPoints))
+    {
+      if(!(missing(support) & missing(Delta)))
+        {
+          if(length(support) == 1) support <- c(0,max(support[1],0))
+          basisPoints <- seq(support[1],support[2],Delta)
+        } else {
+          stop("Must specify either 'support' and 'Delta' or 'basisPoints'.")
+        }
+    } else {
+      support = range(basisPoints)
+      Delta = min(diff(basisPoints))
+    }
+      
+  delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(data)),
+                                    getId(getContinuousProcess(data)),
+                                    function(x) c(diff(x),0)),use.names=FALSE))
+
+  .Object <- new("PointProcessModel",
+                 processDataEnv = processDataEnv,
+                 delta = delta,
+                 formula = formula,
+                 family = family,
+                 call = match.call(),
+                 support = support,
+                 basisPoints = basisPoints,
+                 Delta = Delta,
+                 modelMatrixEnv = modelMatrixEnv,
+                 Omega = Omega,
+                 penalization = penalization,
+                 basisEnv = basisEnv,
+                 ...)
+                 
+  if(modelMatrix) {
+    .Object <- computeModelMatrix(.Object)
+  }
+
+  parDim <- dim(getModelMatrix(.Object))[2]
+  
+  if(missing(coefficients)){
+    coefficients <- rep(0,parDim)
+  } else {
+    if(length(coefficients) != parDim) {
+      coefficients <- rep(0,parDim)
+      warning("Incorrect length of initial parameter vector. Initial parameters all set to 0")
+    }
+  }            
+
+  if(length(fixedCoefficients) != 0) coefficients[fixedCoefficients$which] <- fixedCoefficients$value
+  .Object@fixedCoefficients <- fixedCoefficients
+  .Object@coefficients <- coefficients
             
-            if(modelMatrix) {
-              .Object <- computeModelMatrix(.Object)
-              parDim <- dim(getModelMatrix(.Object))[2]
+  if(fit){
+    .Object <- glppmFit(.Object,coefficients,fisherInformation=fisherInformation,...)
+  }
 
-              if(is.null(coefficients)){
-                coefficients <- rep(0,parDim)
-              } else {
-                if(length(coefficients) != parDim) {
-                  coefficients <- rep(0,parDim)
-                  warning("Incorrect dimension of initial parameter vector. Initial parameters all set to 0")
-                }
-              }
+  return(.Object)
+}
 
-              if(length(fixedCoefficients) != 0) coefficients[fixedCoefficients$which] <- fixedCoefficients$value
-              .Object@fixedCoefficients <- fixedCoefficients
-              .Object@coefficients <- coefficients
+pointProcessSmooth <- function(
+                              formula,
+                              data,
+                              family,
+                              support,
+                              Delta,
+                              basisPoints,
+                              Omega,
+                              coefficients,
+                              fixedCoefficients = list(),
+                              fit = TRUE,
+                              modelMatrix = TRUE,
+                              fisherInformation = modelMatrix
+                              ,...) {
+  
+  processDataEnv <- new.env(.GlobalEnv)
+  processDataEnv$processData <- data
+  lockEnvironment(processDataEnv,bindings=TRUE)
+
+  modelMatrixEnv <- new.env(parent=.GlobalEnv)
+  modelMatrixEnv$modelMatrix <- Matrix()
+
+  ## TODO: Check if ... has a basisEnv, in which case that environment is used instead.
+  basisEnv <- new.env(parent=.GlobalEnv)
+  basisEnv$basis <- list()
+
+  if(missing(Omega))
+    {
+      Omega <- matrix()
+      penalization <- FALSE
+    } else {
+      if(any(Omega != t(Omega)))
+        {
+          Omega <- (Omega + t(Omega))/2
+          warning("Penalization matrix Omega is not symmetric and is replaced by (Omega + t(Omega))/2.")
+        }
+      penalization <- TRUE
+    }
+
+  if(missing(basisPoints))
+    {
+      if(!(missing(support) & missing(Delta)))
+        {
+          if(length(support) == 1) support <- c(0,max(support[1],0))
+          basisPoints <- seq(support[1],support[2],Delta)
+        } else {
+          stop("Must specify either 'support' and 'Delta' or 'basisPoints'.")
+        }
+    } else {
+      support = range(basisPoints)
+      Delta = min(diff(basisPoints))
+    }
+      
+  delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(data)),
+                                    getId(getContinuousProcess(data)),
+                                    function(x) c(diff(x),0)),use.names=FALSE))
+
+  .Object <- new("PointProcessModel",
+                 processDataEnv = processDataEnv,
+                 delta = delta,
+                 formula = formula,
+                 family = family,
+                 call = match.call(),
+                 support = support,
+                 basisPoints = basisPoints,
+                 Delta = Delta,
+                 modelMatrixEnv = modelMatrixEnv,
+                 Omega = Omega,
+                 penalization = penalization,
+                 basisEnv = basisEnv,
+                 ...)
+                 
+  if(modelMatrix) {
+    .Object <- computeModelMatrix(.Object)
+  }
+
+  parDim <- dim(getModelMatrix(.Object))[2]
+  
+  if(missing(coefficients)){
+    coefficients <- rep(0,parDim)
+  } else {
+    if(length(coefficients) != parDim) {
+      coefficients <- rep(0,parDim)
+      warning("Incorrect length of initial parameter vector. Initial parameters all set to 0")
+    }
+  }            
+
+  if(length(fixedCoefficients) != 0) coefficients[fixedCoefficients$which] <- fixedCoefficients$value
+  .Object@fixedCoefficients <- fixedCoefficients
+  .Object@coefficients <- coefficients
             
-              if(fit){
-                .Object <- glppmFit(.Object,coefficients,fisherInformation=fisherInformation,...)
-              }
-            }
-            
-            if(!is.null(call)) .Object@call <- call
-            return(.Object)
+  if(fit){
+    .Object <- glppmFit(.Object,coefficients,fisherInformation=fisherInformation,...)
+  }
 
-          } 
-        )
+  return(.Object)
+}
+
+## TODO: Implement the stress-release type of model with
+## intensity acccumulating according to time but "released"
+## according to mark values.
+
+## TODO: Implement the use of interaction terms.
+
+computeBasis <- function(term,x,basisEnv,varLabels) {
+
+  ## Basis evaluations for 'term' are computed if
+  ## not already computed, locked and available in 'basis' in the
+  ## 'basisEnv' environment.
+    
+  form <- as.formula(paste("~",term,"-1"))
+  variables <- all.vars(form)
+  if(missing(varLabels)) varLabels = variables
+  
+  if(all(variables %in% varLabels)) {
+    if(environmentIsLocked(basisEnv)) return(TRUE)
+    if(length(variables) > 1){
+      stop(paste("Interactions of two or more variables in '",term,
+                 "' is currently not supported.",sep=""))
+    } else {
+      x <- as.data.frame(x)
+      colnames(x) <- variables
+      basisEnv$basis[[term]] <- model.matrix(form,x)
+      return(TRUE)
+    }
+  } else {
+    return(FALSE)
+  }
+}
+
+  
 
 setMethod("subset","PointProcessModel",
           function(x,...){
-            pointProcessModel <- new("PointProcessModel",
-                                     processData = subset(getProcessData(x),...),
-                                     formula = object@formula,
-                                     family = object@family,
-                                     Delta = object@Delta,
-                                     support = object@support)
-            return(pointProcessModel)
+            pointProcessModel(formula = x@formula,
+                              data = subset(getProcessData(x),...),
+                              family = x@family,
+                              Delta = x@Delta,
+                              support = x@support,
+                              basisPoints = x@basisPoints,
+                              Omega = x@Omega,
+                              coefficients = x@coefficients,
+                              fixedCoefficients = x@fixedCoefficients,
+                              basisEnv = x@basisEnv
+                              )
           }
           )
 
@@ -103,7 +275,7 @@ setMethod("subset","PointProcessModel",
 
 setMethod("getModelMatrix","PointProcessModel",
           function(object,...){
-            if(is.null(object@modelMatrixCol)) {
+            if(length(object@modelMatrixCol) == 0) {
               return(object@modelMatrixEnv$modelMatrix)
             } else {
               return(object@modelMatrixEnv$modelMatrix[,object@modelMatrixCol])
@@ -119,11 +291,26 @@ setMethod("coefficients","PointProcessModel",
           )
 
 setReplaceMethod("coefficients","PointProcessModel",
-          function(.Object,value){
-            .Object@coefficients <- value
-            return(.Object)
+                 function(.Object,value){
+                   .Object@coefficients <- value
+                   return(.Object)
+                 }
+                 )
+
+setMethod("formula","PointProcessModel",
+          function(x,...){
+            return(x@formula)
           }
           )
+
+setReplaceMethod("formula","PointProcessModel",
+                 function(.Object,value){
+                   .Object@formula <- value
+                   .Object@basisEnv <- new.env(parent=.GlobalEnv)
+                   basisEnv$basis <- list()
+                   return(.Object)
+                 }
+                 )
 
 setMethod("vcov","PointProcessModel",
           function(object,...){
@@ -146,7 +333,7 @@ setMethod("computeModelMatrix","PointProcessModel",
             } else {
               evalPositions <- evaluationPositions
             }
-
+            
             ## The observed points ('positions') for the marked point process,
             ## the corresponding 'id' labels and 'marks' are extracted.
             
@@ -155,10 +342,10 @@ setMethod("computeModelMatrix","PointProcessModel",
 
             id <- factor(getId(markedPointProcess))
             idLevels <- levels(id)
-
+            
             marks <- getMarkType(markedPointProcess)
             markLevels <- levels(marks)
-
+            
             ## The formula object is extracted and decomposed into terms.
             ## Each term label (in 'termLabels') is processed below,
             ## and the corresponding columns in the model matrix are computed.
@@ -166,76 +353,58 @@ setMethod("computeModelMatrix","PointProcessModel",
             mt <- terms(object@formula) 
             termLabels <- attr(mt,"term.labels")
             notMarkTerms <- character()
-
+            
             ## The points where the basis functions are evaluated are extracted
             ## and the list of model matrices ('design') is set up, which holds model
-            ## matrices for the different terms. The list 'B' holds the matrices
-            ## of basis function evaluations.
-
-            basisEvaluationPoints <- as.data.frame(object@basisPoints)
+            ## matrices for the different terms. 
+            
             design <- list()
-            B <- list()
             
             ## Model matrix computations for the terms involving the marks.
             ## Terms involving 'id' and the continuous process components below.
             ## Those terms are collected in 'notMarkTerms' in the loop below.
             
-            for(term in termLabels){
-              
-              form <- as.formula(paste("~",term,"-1"))
-              variables <- all.vars(form)
-              mark <- markLevels[markLevels %in% variables]
+            for(term in termLabels) {
+              if(computeBasis(term,object@basisPoints,object@basisEnv,markLevels))
+                {
+                ## The call to computeBasis is invoked for its side effect
+                ## of computing the basis evaluations if that is not already
+                ## done (which is checked by checking if the environment 'basisEnv' 
+                ## is locked). The function also checks if 'term' holds the correct
+                ## number of variables from markLevels.
 
-              if(length(mark) > 1) {
-                stop(paste("Interaction of two mark types in '", term,
-                           "' is currently not implemented.",sep=""))
-              } else if(length(mark) == 1) {
-                if(length(variables) > 1) {
-                  stop(paste("Use of more than one variable in '",term,
-                             "' is currently not implemented.",sep=""))
-                  ## To do: Implement the stress-release type of model with
-                  ## intensity acccumulating according to time but "released"
-                  ## according to mark values.
-
-                  ## To do: Implement the use of interaction terms.
-                }
+                  designList <- list()
 
                 ## Model matrix computed for each value of 'id' and stored in
-                ## 'designList'. Basis evaluations for 'term' are computed. 
-
-                designList <- list()
-                colnames(basisEvaluationPoints) <- mark
-                B[[term]] <- model.matrix(form,basisEvaluationPoints)
+                ## 'designList'. 
 
                 ## Central loop over 'idLevels' and computations of the model
                 ## matrix in the C function 'computeModelMatrix'. Result is
                 ## converted to a sparse matrix, bound together in one matrix
                 ## below and stored in the list 'design'.
                 
-                ## To do: The C level computation might return a sparse matrix
+                ## TODO: Can the C level computation return a sparse matrix
                 ## directly?
-                
+
                 for(i in idLevels) {
-                  posi <- sort(positions[marks==mark & id==i])
-                  ## Is this the right place to sort the observed positions?
-                  
+                  mark <- all.vars(parse(text=term))
+                  posi <- sort(positions[marks == mark & id == i])
+                  ## Is this the right place to order the observed positions?
                   designList[[i]] <- Matrix(.Call("computeModelMatrix",
                                                   evalPositions[[i]],
-                                                  B[[term]],
+                                                  object@basisEnv$basis[[term]],
                                                   object@Delta,
                                                   posi,
                                                   PACKAGE="ppstat"),sparse=TRUE)
                 }
                 design[[term]] <- do.call("rBind",designList)
-                colnames(design[[term]]) <- colnames(B[[term]])
+                colnames(design[[term]]) <- colnames(object@basisEnv$basis[[term]])
 
-              } else if(length(mark) == 0) notMarkTerms <- c(notMarkTerms,term)
-                      ## If the term does not involve marks.
+              } else {
+                ## The term does not involve marks
+                notMarkTerms <- c(notMarkTerms,term) 
+              }
             }
-
-            ## If required, the basis evaluations are stored.
-
-            if(object@storeBasis && length(B) > 0) object@basis <- Matrix(do.call("cbind",B))
             
             ## Is there an intercept in the model? If so, add the intercept
             ## explicitly to the vector 'notMarkType'.
@@ -273,6 +442,7 @@ setMethod("computeModelMatrix","PointProcessModel",
             if(environmentIsLocked(object@modelMatrixEnv)) object@modelMatrixEnv <- new.env(parent=.GlobalEnv)
             object@modelMatrixEnv$modelMatrix <- cBind(X0,do.call("cBind",design))
             lockEnvironment(object@modelMatrixEnv,binding=TRUE)
+            lockEnvironment(object@basisEnv,binding=TRUE)            
             return(object)
           }
           )
@@ -363,9 +533,8 @@ setMethod("update","PointProcessModel",
           function(object,...){
             .local <- function(object,formula,fisherInformation=TRUE,warmStart=TRUE,fixedPar=list(),...){
 
-              updatedFormula <- update(object@formula,formula)
-              object@formula <- updatedFormula
-              initPar <- NULL
+              updatedFormula <- update(formula(object),formula)
+              formula(object) <- updatedFormula
 
               updatedTerms <- attr(terms(updatedFormula),"term.labels")
               if(attr(terms(updatedFormula),"intercept")==1) updatedTerms <- c(updatedTerms,"Intercept")
@@ -376,54 +545,60 @@ setMethod("update","PointProcessModel",
                             
               if(any(sapply(updatedModelMatrixColumns,function(x) length(x) == 0))) {
                 object <- computeModelMatrix(object)
-                object@coefficients <- rep(0,dim(getModelMatrix(object))[2])
+                coefficients(object) <- rep(0,dim(getModelMatrix(object))[2])
               } else {
                 col <- sort(unlist(updatedModelMatrixColumns))
                 if(any(attr(terms(object@formula),"order") >= 2)) {
                   warning("Original model specification includes interaction terms. The updated model may not be as desired.")
                 }
                 object@modelMatrixCol <- col
-                if(warmStart) object@coefficients <- initPar <- coefficients(object)[col]
+                if(warmStart) object@coefficients <- coefficients(object)[col]
               }
 
               if(length(fixedPar) != 0) object@coefficients[fixedPar$which] <- fixedPar$value
               object@fixedCoefficients <- fixedPar
                           
-              return(glppmFit(object,initPar=initPar,fisherInformation=fisherInformation,...))
-              
+              return(glppmFit(object,initPar=coefficients(object),fisherInformation=fisherInformation,...))
             }
             object@call <- match.call()
             .local(object,...)
           }
           )
 
-setMethod("getLinearFilter",c(x="numeric",object="PointProcessModel"),
-          function(x,object,...){
+setMethod("getLinearFilter",c(object="PointProcessModel",se="logical"),
+          function(object,se=FALSE,nr=NULL...){
+            
+            markLevels <- levels(getMarkType(getMarkedPointProcess(getProcessData(object))))
+            termLabels <- attr(terms(formula(object)),"term.labels")
 
-            mpp <- getMarkedPointProcess(getProcessData(object))
-            evaluations <- as.data.frame(x)
-            termLabels <- attr(terms(object@formula),"term.labels")
-            i <- 1
             linearFilter <- list()
-            linearFilterSE <- list()
+            if(isTRUE(se)) linearFilterSE <- list()
+            if(is.null(nr)) nr <- dim(object@basisEnv$basis[[term]])[1]
             
             for(term in termLabels){
-              form <- as.formula(paste("~",term,"-1"))
-              if(all( all.vars(form) %in% c(levels(getMarkType(mpp)),colnames(getMarkValue)))){
-                names(evaluations) <- all.vars(form)
-                design <- model.matrix(form,evaluations)
-                linearFilter[[all.vars(form)]] <- design %*% coefficients(object)[dimnames(design)[[2]]]
-                linearFilterSE[[all.vars(form)]] <- sqrt(diag(design %*% vcov(object)[dimnames(design)[[2]],dimnames(design)[[2]]] %*% t(design)))
-              }
+              if(computeBasis(term,object@basisPoints,object@basisEnv,markLevels))
+                {
+                  i <- seq_len(nr)*floor(dim(object@basisEnv$basis[[term]])[1]/nr)
+                  design <- object@basisEnv$basis[[term]][i,]
+                  linearFilter[[term]] <- design %*% coefficients(object)[dimnames(design)[[2]]]
+                  if(isTRUE(se))
+                    linearFilterSE[[term]] <- sqrt(rowSums(design %*% vcov(object)[dimnames(design)[[2]],dimnames(design)[[2]]] * design))
+                }
             }
-
-            list(linearFilter=cbind(x, as.data.frame(linearFilter)),se=linearFilterSE)
+            
+            lockEnvironment(object@basisEnv,bindings=TRUE)
+            if(isTRUE(se)) {
+              return(list(linearFilter=cbind(data.frame(x=object@basisPoints[i]), as.data.frame(linearFilter)),se=linearFilterSE))
+            } else {
+              return(cbind(data.frame(x=object@basisPoints[i]), as.data.frame(linearFilter)))
+            }
+              
           }
           )
 
-setMethod("plot",signature(x="numeric",y="PointProcessModel"),
+setMethod("plot",signature(x="PointProcessModel",y="missing"),
           function(x,y,trans=NULL,alpha=0.05,...){
-            linearFilter <- getLinearFilter(x,y)
+            linearFilter <- getLinearFilter(x,se=TRUE,nr=1000)
             moltenFilter <- melt(linearFilter$linearFilter,id.vars="x")
             q <- qnorm(1-alpha/2)
             plotData <- cbind(moltenFilter,data.frame(cf.lower = moltenFilter$value-q*unlist(linearFilter$se),
@@ -440,30 +615,6 @@ setMethod("plot",signature(x="numeric",y="PointProcessModel"),
             return(linearFilterPlot)
           }
           )
-
-
-### TODO: Implement plot based on the precomputed basis matrix
-
-## setMethod("plot",signature(x="PointProcessModel",y="missing"),
-##           function(x,y,trans=NULL,alpha=0.05,...){
-##             linearFilter <- getLinearFilter(x,y)
-##             moltenFilter <- melt(linearFilter$linearFilter,id.vars="x")
-##             q <- qnorm(1-alpha/2)
-##             plotData <- cbind(moltenFilter,data.frame(cf.lower = moltenFilter$value-q*unlist(linearFilter$se),
-##                                                       cf.upper = moltenFilter$value+q*unlist(linearFilter$se)))
-                              
-##             if(!is.null(trans)) plotData[,c("value","cf.lower","cf.upper")] <- do.call(trans,list(plotData[,c("value","cf.lower","cf.upper")]))
-
-##             linearFilterPlot <- ggplot(data=plotData,aes(x=x,y=value)) +
-##               facet_grid(.~variable) +
-##                 geom_ribbon(aes(min=cf.lower,max=cf.upper),fill=alpha("blue",0.2)) +
-##                   scale_x_continuous("position") +
-##                     scale_y_continuous("") + geom_line()
-
-##             return(linearFilterPlot)
-##           }
-##           )
-
 
 setMethod("print","PointProcessModel",
           function(x,digits= max(3, getOption("digits") - 3), ...){

@@ -33,38 +33,28 @@ const <- function(x,y,c=1){
 ## Implementation of main function to call for the estimation of
 ## generalized linear point process models.
 
-glppm <- function(formula,data,family,pointProcessModel,Delta=0.1,support=c(0,1),initPar=NULL,fisherInformation=TRUE,fixedPar=list(),Omega=NULL,...){
+## TODO: Things is developing in the direction that glppm becomes superfluous
+## and should be deleted. The constructor 'pointProcessModel' is taking over
+## its role completely, and that seems more clean.
+
+glppm <- function(formula,data,family,Delta=0.1,support=c(0,1),fisherInformation=TRUE,fixedPar=list(),...){
 
   ## At this point it may be desirable to make certain checks and to parse some
   ## user specified information. For instance a choice of evaluation positions
   ## or specification of intelligent evaluation schemes.
-  ## This has at the moment been moved to the class ProcessData
+  ## This has at the moment been moved to the class ProcessData  
 
-  if(length(support) == 1) support <- c(0,support)
-  if(support[2] - support[1] <= 0) stop("support has to be either a positive number or a positive interval")
-  if(Delta > support[2] - support[1]) stop("Delta has to be smaller than the length of the support")
+  if(!(class(data)=="ProcessData")) stop("Function 'glppm' needs data to be of class 'ProcessData'")
+
+  ppm <- pointProcessModel(formula = formula,
+                           data = data,
+                           family = family,
+                           support = support,
+                           Delta = Delta, 
+                           fixedCoefficients = fixedPar,
+                           fisherInformation = fisherInformation,...)
   
-  (function(fisherPreComp=NULL,...) {
-    if(!is.null(fisherPreComp)) warning("Use of precomputations and argument 'fisherPreComp' in 'glppm' is deprecated",call.=FALSE)
-  })(...)
-
-  if(missing(pointProcessModel)){
-    if(!(class(data)=="ProcessData")) stop("Function 'glppm' needs data to be of class 'ProcessData'")
-    pointProcessModel <- new("PointProcessModel",
-                             processData=data,
-                             formula=formula,
-                             family=family,
-                             coefficients=initPar,
-                             fixedCoefficients=fixedPar,
-                             fisherInformation=fisherInformation,
-                             Omega=Omega,
-                             support=support,
-                             Delta=Delta, 
-                             call=match.call(),...)
-  } else if(!(class(pointProcessModel)=="PointProcessModel")) {
-    stop("Function 'glppm' needs a pointProcessModel of class 'PointProcessModel'")
-  }
-  return(pointProcessModel)
+  return(ppm)
 }
 
 glppmFit <- function(model,initPar=NULL,fisherInformation=TRUE,control=list(),...) {
@@ -145,7 +135,7 @@ glppmFit <- function(model,initPar=NULL,fisherInformation=TRUE,control=list(),..
     model@coefficients[-fixedPar$which] <- model@optimResult$par
     model@coefficients[fixedPar$which] <- fixedPar$value
   }
-  names(model@coefficients) <- dimnames(model@modelMatrix)[[2]]
+  names(model@coefficients) <- dimnames(getModelMatrix(model))[[2]]
 
   ### Computation of the estimated covariance matrix
   if(fisherInformation) {
@@ -241,7 +231,7 @@ glpps <- function(formula,data,family,pointProcessSmooth,Delta=0.1,support=c(0,1
   if(Delta > support[2] - support[1]) stop("Delta has to be smaller than the length of the support")
   
   if(missing(pointProcessModel)){
-    if(!(class(data)=="ProcessData")) stop("Function 'glppm' needs data to be of class 'ProcessData'")
+    if(!(class(data)=="ProcessData")) stop("Function 'glpps' needs data to be of class 'ProcessData'")
     pointProcessSmooth <- new("PointProcessSmooth",
                               processData=data,
                               formula=formula,

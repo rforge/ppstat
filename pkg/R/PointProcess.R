@@ -43,10 +43,10 @@ setMethod("computeMinusLogLikelihood","PointProcess",
 
             if(object@family@link == "log"){
               mll <-  sum(exp(eta)*object@delta) -
-                sum(eta[getMarkTypePosition(object@processData,response)]) 
+                sum(eta[getMarkTypePosition(getProcessData(object),response)]) 
             } else {
               mll <-  sum(object@family@phi(eta)*object@delta) -
-                sum(log(object@family@phi(eta[getMarkTypePosition(object@processData,response)]))) 
+                sum(log(object@family@phi(eta[getMarkTypePosition(getProcessData(object),response)]))) 
             }
             
             return(mll)
