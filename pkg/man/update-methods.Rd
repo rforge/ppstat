@@ -4,29 +4,28 @@
 \title{update}
 \description{
   
-  The function \command{update} will update and re-fit a
+  The function \command{update} will update and refit a
   \code{PointProcessModel}.
   
 }
 \usage{
 
-\S4method{update}{PointProcessModel}(object,formula,fisherInformation=TRUE,warmStart=TRUE,fixedPar=list(),...)
+\S4method{update}{PointProcessModel}(model, formula, warmStart = TRUE,
+fixedPar = list(), ...)
 
 }
 \arguments{
-  \item{object}{The \code{PointProcessModel} object to be updated.}
+  \item{model}{the \code{PointProcessModel} object to be updated.}
   \item{formula}{Changes to the formula - see 'update.formula' for
     details.}
-  \item{fisherInformation}{logical. Should the observed Fisher
-  information and its inverse be computed. Default is \code{TRUE}, but
-  the computations can be time consuming.}
-  \item{warmStart}{logical. Should the optimization use the previously
-    estimated values of the parameters in the larger model. Default is
+  \item{warmStart}{a \code{logica}l. Specifies if the optimization uses the previously
+    estimated values of the parameters in the larger model as initial
+    values if possible. Default is
     \code{TRUE}.}
-  \item{fixedPar}{a list describing parameters that should be fixed in
-  the form of a list containing two entries named \code{which} and
-  \code{values} that give the position in the parameter vector and the
-  value, respectively, of the parameters that should be fixed.}
+  \item{fixedCoefficients}{a list describing parameters that should be fixed in
+    the form of a list containing two entries named \code{which} and
+    \code{values} that give the position in the parameter vector and the
+    value, respectively, of the parameters that should be fixed.}
   \item{...}{Additional arguments to the call}
 }
 
@@ -38,23 +37,34 @@
 }
 
 \details{
+  This function can be used to update and refit a model of class
+  \code{\linkS4class{PointProcessModel}} as an alternative to constructing a
+  new model object by calling the function \command{pointProcessModel} directly.
 
-  This function can be used to update and refit an object of class
-  \code{\linkS4class{PointProcessModel}} as an alternative to making a
-  new object by calling the function \command{glppm} directly.
-
-  If possible, the updated model will try to reuse (parts of) the model
+  If possible, the updated model will reuse (parts of) the model
   matrix and thus not recompute the entire model matrix as would
-  otherwise happen by a direct call to \command{glppm}. This can reduce
-  computations if the model uses many linear filter specifications as
-  the computation of the model matrix is then often far more demanding
-  than the subsequent optimization.
+  happen by a direct call to \command{pointProcessModel}. Reuse will happen if the updated
+  model is a submodel of the original model and will reduce
+  computation time as well as memory usage. For large data
+  sets and/or many linear predictors the model matrix becomes very
+  large, and the time to compute the matrix can be considerable. Most
+  notably, by using \code{update} the model matrix is copied by
+  reference from the original model to the submodel, and thus does not
+  take up memory twice. When investigating several models that are all
+  submodels of a single supermodel it is therefore recommended to fit
+  the supermodel first and use \code{update} to fit the different
+  submodels. 
 
-  Note that the current implementation of \code{update} is in general not able to
-  identify the correct columns in the model matrix if the original model
-  includes interaction terms and will most likely result in a
-  recomputation of the model matrix. If interactions are included and
-  the model matrix is not recomputed a warning is then issued.   
+  The current implementation of \code{update} works by using the assignment of
+  columns in the model matrix to terms in the formula. This assignment
+  is given by the attribute \code{assign} to the model matrix. A new model
+  is identified as a submodel if all terms in the new model are terms in
+  the original model. The updated model matrix consists of the columns
+  that are assigned to a term in the new model. An important consequence
+  is that if the original model includes interactions the updated model
+  may not be parametrized as expected or as if the model was specified
+  using \command{pointProcessModel}. The updated model may not even be
+  as expected. In this case a warning is given.
 }
 
 
