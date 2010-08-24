@@ -16,7 +16,7 @@ setClass("Family",
          )
 
 setMethod("initialize","Family",
-          function(.Object, name, link="identity", c=0, phi=NULL, Dphi=NULL, D2phi=NULL){
+          function(.Object, name="Hawkes", link="identity", c=0, phi=NULL, Dphi=NULL, D2phi=NULL){
             .Object@name <- name
             if(is.null(phi)) {
               tmpLink <- makeLink(link,c=c)
@@ -33,6 +33,10 @@ setMethod("initialize","Family",
             return(.Object)
           }
         )
+
+Hawkes <- function(link="identity", ...) {
+  return(new("Family","Hawkes",link=link,...))
+}
                         
 makeLink <- function (link,c=0) 
 {
