@@ -14,14 +14,14 @@ point process model.
 \tabular{ll}{
 Package: \tab ppstat\cr
 Type: \tab Package\cr
-Version: \tab 0.5 \cr
-Date: \tab 2010-07-01 \cr
+Version: \tab 0.6 \cr
+Date: \tab 2010-08-19 \cr
 License: \tab GPL version 2 or newer \cr
 LazyLoad: \tab yes\cr
 }
 
-\code{\link{glppm}} is the main function for fitting a generalized
-linear point process model to a dataset, which is stored as an object
+\code{\link{pointProcessModel}} is the main function for constructing
+and fitting a generalized linear point process model to a dataset, which is stored as an object
 of class \code{\linkS4class{ProcessData}}. A ProcessData object contains two
 components, one object of class \code{\linkS4class{MarkedPointProcess}}
 containing the data of the modeled marked point process as well
@@ -29,7 +29,7 @@ as any additional covariate marked point processes, and one
 object of class \code{\linkS4class{ContinuousProcess}} containing 
 potential continuous time covariate processes. The latter object
 will always hold the data as a series of observations at
-discrete (time) points that are not necessarily equidistant.
+not necessarily equidistant (time) points.
 
 The data structures for continuous and marked point processes are
 implemented in the package \code{\link{processdata}}.
@@ -43,16 +43,14 @@ Maintainer: \email{Niels.R.Hansen@math.ku.dk}
 }
 \references{
 
-Hansen, N. R. \emph{Penalized maximum likelihood estimation for generalized linear point processes .} Working paper.
+Hansen, N. R. \emph{Penalized maximum likelihood estimation for
+  generalized linear point processes}. 	arXiv:1003.0848v1 
 
-Hansen, N. R. and Carstensen, L. \emph{Modeling genomic organization with 
-generalized linear point process models}. Working paper.
 
 }
 
 \examples{
 
-### glppm(...)
 
 }
 \keyword{models}
