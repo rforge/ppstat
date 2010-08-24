@@ -20,11 +20,11 @@ Objects can be created by calls of the form \code{new("Family", name,
 }
 \section{Slots}{
 	 \describe{
-    \item{\code{name}:}{Object of class \code{"character"}.}
-    \item{\code{link}:}{Object of class \code{"character"}.}
-    \item{\code{phi}:}{Object of class \code{"function"}.}
-    \item{\code{Dphi}:}{Object of class \code{"function"}.}
-    \item{\code{D2phi}:}{Object of class \code{"function"}.}
+    \item{\code{name}:}{Object of class \code{character}.}
+    \item{\code{link}:}{Object of class \code{character}.}
+    \item{\code{phi}:}{Object of class \code{function}.}
+    \item{\code{Dphi}:}{Object of class \code{function}.}
+    \item{\code{D2phi}:}{Object of class \code{function}.}
   }
 }		
 \section{Methods}{
@@ -34,27 +34,44 @@ Objects can be created by calls of the form \code{new("Family", name,
 }
     
 \section{Details}{
-  One supported family is the \code{Hawkes} family with
-  the \code{log}-link function:
-
-  \code{new("Family",name="Hawkes",link="log")}
-
-  Other implemented standard link functions are, "logit", "cloglog", "identity", "root", "logaffine". 
-  The latter two requires the additional parameter c, which by default
-  is 0. For "root" this gives
-  \deqn{\phi(x) = x^{c+1}1(x > 0)}{phi(x) = x^{c+1}1(x > 0)}
-  and for "logaffine"
-  \deqn{\phi(x) =  \exp(x)1(x < c) + \exp(c)(x - c + 1)1(x > c).}{phi(x) =  exp(x)1(x < c) + exp(c)(x - c + 1)1(x > c).}
-  Using "identity" requires a constrained parameter space. 
+  The family object is part of the model specification for a generalized
+  linear point process model as implemented in the class
+  \code{PointProcessModel}. 
   
-  }
+  Currently, the only implemented family is the \code{Hawkes}
+  family. The link is the "inverse" of the \eqn{\phi}{phi} function
+  specified as a text string to facilitate the use of standard
+  conventions, e.g. the log-link function corresponds to
+  \eqn{\phi=\exp}{phi=exp}.
+  
+  Implemented standard link functions are, \code{'log'}, \code{'logit'},
+  \code{'cloglog'}, \code{'identity'}, \code{'root'},
+  \code{'logaffine'}.  The latter two requires the specification of the
+  additional parameter \code{c}, which by default is 0. For
+  \code{'root'} the resulting \eqn{\phi}{phi}-function is
+
+  \deqn{\phi(x) = x^{c+1}1(x >0)}{phi(x) = x^{c+1}1(x > 0)}
+
+  and for \code{'logaffine'}
+
+  \deqn{\phi(x) = \exp(x)1(x \leq c) + \exp(c)(x - c + 1)1(x > c).}{
+  phi(x) = exp(x)1(x <= c) + exp(c)(x - c + 1)1(x > c).}
+
+  Using the identity link-function requires a constrained parameter
+  space to ensure that the intensity for the point process model is positive.}
     
 \author{Niels Richard Hansen, \email{Niels.R.Hansen@math.ku.dk}}
 
 \seealso{
-	 \code{\linkS4class{PointProcessModel}} and  \code{\link{glppm}}. 
+	 \code{\linkS4class{PointProcessModel}}, \code{\link{Hawkes}} and  \code{\link{pointProcessModel}}. 
 }
 \examples{
 showClass("Family")
+
+## The Hawkes family with the log-link.
+Hawkes(link = 'log')  
+
+## The Hawkes family with the logaffine-link.
+Hawkes(link = 'logaffine', c= 1 ) 
 }
 \keyword{classes}
