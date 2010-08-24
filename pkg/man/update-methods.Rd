@@ -1,6 +1,6 @@
 \name{update-methods}
+\alias{update-methods}
 \alias{update,PointProcessModel-method}
-\alias{update}
 \title{update}
 \description{
   
@@ -10,50 +10,59 @@
 }
 \usage{
 
-\S4method{update}{PointProcessModel}(model, formula, warmStart = TRUE,
-fixedPar = list(), ...)
+\S4method{update}{PointProcessModel}(model, formula = .~., warmStart = TRUE, fixedPar = list(), ...)
 
 }
 \arguments{
   \item{model}{the \code{PointProcessModel} object to be updated.}
   \item{formula}{Changes to the formula - see 'update.formula' for
-    details.}
-  \item{warmStart}{a \code{logica}l. Specifies if the optimization uses the previously
-    estimated values of the parameters in the larger model as initial
-    values if possible. Default is
+    details. The default value \code{.~.} results in a refit of the
+    model.}
+  \item{warmStart}{a \code{logical}. Specifies if the optimization
+    should use the previously
+    estimated values of the parameters from the original
+    model, if possible, as initial values. Default is
     \code{TRUE}.}
-  \item{fixedCoefficients}{a list describing parameters that should be fixed in
-    the form of a list containing two entries named \code{which} and
+  \item{fixedCoefficients}{a \code{list}. Paramters that should be fixed 
+    specified as a list containing the two entries \code{which} and
     \code{values} that give the position in the parameter vector and the
     value, respectively, of the parameters that should be fixed.}
-  \item{...}{Additional arguments to the call}
+  \item{...}{additional arguments to the call. Passed on to \code{ppmFit}.}
 }
+
 
 \value{
   
   An object of class \code{\linkS4class{PointProcessModel}} containing the
-  estimated parameters.
+  estimated parameters after the update. 
   
 }
 
 \details{
-  This function can be used to update and refit a model of class
+  This function is used to update and refit a model of class
   \code{\linkS4class{PointProcessModel}} as an alternative to constructing a
-  new model object by calling the function \command{pointProcessModel} directly.
+  new model object by calling the function \command{pointProcessModel}
+  directly.
 
-  If possible, the updated model will reuse (parts of) the model
-  matrix and thus not recompute the entire model matrix as would
-  happen by a direct call to \command{pointProcessModel}. Reuse will happen if the updated
-  model is a submodel of the original model and will reduce
-  computation time as well as memory usage. For large data
-  sets and/or many linear predictors the model matrix becomes very
-  large, and the time to compute the matrix can be considerable. Most
-  notably, by using \code{update} the model matrix is copied by
-  reference from the original model to the submodel, and thus does not
-  take up memory twice. When investigating several models that are all
-  submodels of a single supermodel it is therefore recommended to fit
-  the supermodel first and use \code{update} to fit the different
-  submodels. 
+  A call of \code{update} without specifying the \code{formula} will
+  refit the model without recomputing the model matrix. Combined with
+  setting the coefficients of the \code{model} object this can be used 
+  try different initial values for the numerical optimization
+  algorithm. Also, additional (alternative) arguments can be given,
+  which are passed on to \code{ppmFit} and ultimately to \code{optim}. 
+
+  If possible, the updated model will reuse (parts of) the model matrix
+  and thus not recompute the entire model matrix as would happen by a
+  direct call to \command{pointProcessModel}. Reuse will happen if the
+  updated model is a submodel of the original model and will reduce
+  computation time as well as memory usage. For large data sets and/or
+  many linear predictors the model matrix becomes very large, and the
+  time to compute the matrix can be considerable. Most notably, by using
+  \code{update} the model matrix is copied by reference from the
+  original model to the submodel, and thus does not take up memory
+  twice. When investigating several models that are all submodels of a
+  single supermodel it is therefore recommended to fit the supermodel
+  first and use \code{update} to fit the different submodels.
 
   The current implementation of \code{update} works by using the assignment of
   columns in the model matrix to terms in the formula. This assignment
@@ -61,10 +70,23 @@ fixedPar = list(), ...)
   is identified as a submodel if all terms in the new model are terms in
   the original model. The updated model matrix consists of the columns
   that are assigned to a term in the new model. An important consequence
-  is that if the original model includes interactions the updated model
-  may not be parametrized as expected or as if the model was specified
-  using \command{pointProcessModel}. The updated model may not even be
-  as expected. In this case a warning is given.
+  is that if the full model includes interactions, the updated model
+  may not be parametrized as expected nor as if the model was specified
+  using \command{pointProcessModel}. A warning is therefore always given if there are
+  interactions in the full model. There are also other cases, e.g. if
+  one removes the intercept, where the updated model may not be as
+  expected due to contrasts. How to deal with this problem is currently unsolved.  
+
+  For any submodel the model matrix is given by reference
+  to the full model matrix of the supermodel. Therefore,
+  a call to \code{getModelMatrix} for a submodel will return a subset of
+  columns from the full model matrix. Consequently, the references in the
+  attribute \code{assign} are to the terms in the full model formula and
+  not the terms in the submodel formula. The full model formula is stored in
+  the attribute \code{formula} of the model matrix. The attributes are
+  intended for internal use in \code{update} primarily. It is recommended that
+  they are not relied upon for other usages.  
+  
 }
 
 
