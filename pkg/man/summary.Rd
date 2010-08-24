@@ -1,20 +1,25 @@
 \name{summary}
 \alias{summary,PointProcessModel-method}
+\alias{summary,PointProcessSmooth-method}
 \alias{print.summary.glppm}
 \title{summary}
 \description{
-Prints a summary of the point process model fitted with glppm.
+  
+  Prints a summary of a fitted point process model constructed with
+  e.g. \code{pointProcessModel} or \code{pointProcessSmooth}.
+
 }
 \usage{
 \S4method{summary}{PointProcessModel}(object,...)
+\S4method{summary}{PointProcessSmooth}(object,...)
 
 \S3method{print}{summary.glppm}(x, digits = max(3, getOption("digits") - 3), 
     signif.stars = getOption("show.signif.stars"), ...)
 }
 \arguments{
-  \item{object}{an object of class \code{PointProcessModel}}
-  \item{x}{a list of class \code{summary.glppm}, usually the result of a
-    call of \code{summary} on a \code{PointProcessModel} object.}
+  \item{object}{an object of class \code{"PointProcessModel"}}
+  \item{x}{a list of class \code{"summary.glppm"}, usually the result of a
+    call of \code{summary} on a \code{"PointProcessModel"} object.}
   \item{digits}{the number of significant digits to use when printing.}
   \item{signif.stars}{logical. If \code{TRUE}, 'significance stars' are printed for
     each coefficient.}
@@ -22,7 +27,7 @@ Prints a summary of the point process model fitted with glppm.
 }
 \value{
   The S4 method \command{summary} returns a list of S3-class
-  \code{summary.glppm}. It contains the entries
+  \code{"summary.glppm"}. It contains the entries
   \item{df}{degrees of freedom or effective degrees of freedom}
   \item{call}{the call used to generate the \code{PointProcessModel}
     object}
@@ -42,7 +47,7 @@ Prints a summary of the point process model fitted with glppm.
   to the number of parameters, p. Future extensions will offer the
   possibility of L2 and L1 regularized fits and a corresponding
   computation of the effective degrees of freedom useful for model
-  selection that differ from the actual number of parameters. 
+  selection that differs from the actual number of parameters. 
   
 }
 
