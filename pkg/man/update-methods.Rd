@@ -10,23 +10,27 @@
 }
 \usage{
 
-\S4method{update}{PointProcessModel}(model, formula = .~., warmStart = TRUE, fixedPar = list(), ...)
+\S4method{update}{PointProcessModel}(object, formula = .~., warmStart = TRUE, fixedCoefficients = list(), ...)
 
 }
 \arguments{
-  \item{model}{the \code{PointProcessModel} object to be updated.}
+  \item{object}{the \code{PointProcessModel} object to be updated.}
+
   \item{formula}{Changes to the formula - see 'update.formula' for
     details. The default value \code{.~.} results in a refit of the
     model.}
+
   \item{warmStart}{a \code{logical}. Specifies if the optimization
     should use the previously
     estimated values of the parameters from the original
     model, if possible, as initial values. Default is
     \code{TRUE}.}
+  
   \item{fixedCoefficients}{a \code{list}. Paramters that should be fixed 
     specified as a list containing the two entries \code{which} and
     \code{values} that give the position in the parameter vector and the
     value, respectively, of the parameters that should be fixed.}
+
   \item{...}{additional arguments to the call. Passed on to \code{ppmFit}.}
 }
 
@@ -47,7 +51,7 @@
   A call of \code{update} without specifying the \code{formula} will
   refit the model without recomputing the model matrix. Combined with
   setting the coefficients of the \code{model} object this can be used 
-  try different initial values for the numerical optimization
+  to try different initial values for the numerical optimization
   algorithm. Also, additional (alternative) arguments can be given,
   which are passed on to \code{ppmFit} and ultimately to \code{optim}. 
 
@@ -94,7 +98,7 @@
 
 \seealso{
 
-\code{\link{update}}, \code{\link{update.formula}}, \code{\link{glppm}}, \code{\linkS4class{PointProcessModel}}
+\code{\link{update}}, \code{\link{update.formula}}, \code{\link{pointProcessModel}}, \code{\linkS4class{PointProcessModel}}
 
 }
 

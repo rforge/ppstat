@@ -5,18 +5,8 @@
 ### TODO: Implement a family "Gibbs" where we allow for anticipation in the 
 ### stochastic integrals.
 
-setClass("Family",
-         representation(
-                        name = "character",
-                        link = "character",       ## Name of the link, e.g. log if phi=exp
-                        phi = "function",         ## The function that may be called the inverse link
-                        Dphi = "function",        ## First derivative
-                        D2phi= "function"         ## Second derivative
-                       )
-         )
-
-setMethod("initialize","Family",
-          function(.Object, name="Hawkes", link="identity", c=0, phi=NULL, Dphi=NULL, D2phi=NULL){
+setMethod("initialize", "Family",
+          function(.Object, name = "Hawkes", link = "identity", c = 0, phi = NULL, Dphi = NULL, D2phi = NULL){
             .Object@name <- name
             if(is.null(phi)) {
               tmpLink <- makeLink(link,c=c)
@@ -34,10 +24,20 @@ setMethod("initialize","Family",
           }
         )
 
-Hawkes <- function(link="identity", ...) {
-  return(new("Family","Hawkes",link=link,...))
+Hawkes <- function(link = "root", ...) {
+  return(new("Family", "Hawkes",link = link,...))
 }
-                        
+
+Gibbs <- function(link = "root", ...) {
+  return(new("Family", "Gibbs", link = link, ...))
+}
+
+setMethod("family", "Family",
+          function(object,...) {
+            return(object@name)
+          }
+          )
+
 makeLink <- function (link,c=0) 
 {
     switch(link, logit = {

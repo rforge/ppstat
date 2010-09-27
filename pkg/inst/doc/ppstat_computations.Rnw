@@ -57,8 +57,8 @@ The core computational problem in the use of point processes for statistical mod
 is the optimization of the minus-log-likelihood function, which is
 given as 
 \begin{eqnarray*}
-l(\theta) = \sum_{j=1}^{n}\log\lambda_{\theta}(t_j)-\int_{0}^{T}
-\lambda_{\theta}(s)\mathrm{d}s
+l(\theta) = \int_{0}^{T}
+\lambda_{\theta}(s)\mathrm{d}s - \sum_{j=1}^{n}\log\lambda_{\theta}(t_j)
 \end{eqnarray*}
 where $0 < t_1 < t_2 < \ldots < t_{n}< T$ are observations and $\lambda_{\theta}$ is a parameterized family of intensities. Typically 
 $\theta \in \Theta \subseteq \mathbb{R}^p$. For the Hawkes family of

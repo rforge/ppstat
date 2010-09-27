@@ -16,6 +16,8 @@ model.
 Objects can be created by calls of the form \code{new("Family", name,
   link, phi, Dphi, D2phi)}.
 
+Alternatively, the constructors \code{\link{Hawkes}} and
+\code{\link{Gibbs}} can be used. 
 
 }
 \section{Slots}{
@@ -38,7 +40,7 @@ Objects can be created by calls of the form \code{new("Family", name,
   linear point process model as implemented in the class
   \code{PointProcessModel}. 
   
-  Currently, the only implemented family is the \code{Hawkes}
+  Two implemented families are \code{Hawkes} and the \code{Gibbs}
   family. The link is the "inverse" of the \eqn{\phi}{phi} function
   specified as a text string to facilitate the use of standard
   conventions, e.g. the log-link function corresponds to
@@ -58,7 +60,18 @@ Objects can be created by calls of the form \code{new("Family", name,
   phi(x) = exp(x)1(x <= c) + exp(c)(x - c + 1)1(x > c).}
 
   Using the identity link-function requires a constrained parameter
-  space to ensure that the intensity for the point process model is positive.}
+  space to ensure that the intensity for the point process model is
+  positive. For this reason \eqn{\phi(x)=\max\{x,0\}}{\phi(x)=max(x,0)}
+  is often a better choice, which is obtained as the \code{'root'} link with
+  \code{c=0} (the default).
+
+  Note that in order to prevent taking the logarithm of 0 in the
+  computation of the minus-log-likelihood function, and thus preventing
+  the minus-log-likelihood from taking the value \code{Inf}, all the
+  standard link functions are truncated below at the value
+  \code{.Machine$double.eps}.
+
+}
     
 \author{Niels Richard Hansen, \email{Niels.R.Hansen@math.ku.dk}}
 
@@ -69,9 +82,14 @@ Objects can be created by calls of the form \code{new("Family", name,
 showClass("Family")
 
 ## The Hawkes family with the log-link.
-Hawkes(link = 'log')  
+new("Family", 'Hawkes', link = 'log')
+## Or using the constructor.
+Hawkes(link = 'log')
+
+## The default for the constructor is the root link.
+Hawkes()
 
 ## The Hawkes family with the logaffine-link.
-Hawkes(link = 'logaffine', c= 1 ) 
+Hawkes(link = 'logaffine', c = 1) 
 }
 \keyword{classes}

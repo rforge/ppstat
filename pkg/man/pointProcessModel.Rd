@@ -21,7 +21,7 @@
 
 pointProcessModel(formula, data, family, support, Delta, basisPoints,
   Omega, coefficients, fixedCoefficients = list(), modelMatrix = TRUE,
-  fit = modelMatrix, varMethod = 'Fisher', ...)
+  fit = modelMatrix, varMethod = 'Fisher', basisEnv, ...)
 
 pointProcessSmooth(formula, data, family, support, Delta, basisPoints,
   coefficients, fixedCoefficients = list(), fit = TRUE,
@@ -82,7 +82,7 @@ ppmFit(model, control=list(), ...)
     preventing the estimation of the variance matrix.}
 
   \item{basisEnv}{an optional \code{environment} holding precomputed
-  basis function evaluations.}
+    basis function evaluations.}
 
   \item{model}{a point process model as an object of class
     \code{\linkS4class{PointProcessModel}}.}
@@ -105,7 +105,7 @@ ppmFit(model, control=list(), ...)
   A column stored in the \code{value}-slot in the
   \code{continuousProcess} can enter in the formula specification by
   name just as if we did an ordinary regression on the variable stored
-  in the column. So can the \code{id} and \code{position}
+  in the column. So can the \code{id} and \code{position}/\code{time}
   slot. The variables from the \code{continuousProcess} enter directly,
   as specified by the formula, into the intensity through
   the inverse link function of the linear predictor process. 
@@ -130,31 +130,39 @@ ppmFit(model, control=list(), ...)
   B-splines. See \code{\link{Family}} for details on the family and
   \eqn{\phi}{phi} function specification.
 
-  \code{ppmFit} does the actual estimation of the model. It is usually not
-  called explicitly by the user. The current implementation does
-  numerical minimization of the minus-log-likelihood function 
-  using \code{optim} with the L-BFGS-B-algorithm.
+  \code{ppmFit} does the actual estimation of the model. It is usually
+  not called explicitly by the user. The current implementation does
+  numerical minimization of the minus-log-likelihood function using
+  \code{optim} - in general using the BFGS-algorithm. However, if the identity
+   \eqn{\phi}{phi} function is used (choose \code{link="identity"} in the family
+  specification) the L-BFGS-B-algorithm is used
+  instead, with the default lower bound \code{sqrt(Machine$double.eps)} on the
+  intercept parameter and 0 on other parameters.  
   
   Control parameters for the numerical optimization may be passed to the
   \code{optim} function via the \code{control} argument for
   \code{ppmFit}. The maximal number of iterations for the
-  L-BFGS-B-algorithm is set to 1000 when used in \code{ppmFit} in
+  algorithm is set to 1000 when used in \code{ppmFit} in
   contrast to the default for \code{optim}, which is 100. See
   \code{\link{optim}} for details. A \code{control}
   argument in a call of \code{pointProcessModel} is automatically passed
   on to the call of \code{ppmFit}.
 
-  The L-BFGS-B algorithm allows for box-constraints on the parameters. A
-  typical constraint is positivity of all parameters. This is required
-  if the \eqn{\phi}{phi} function is the identity (choose
-  \code{link="identity"} in the family specification). The lower and
-  upper bounds are specified in the call by setting the additional arguments
-  \code{lower} and \code{upper} that are passed to the \code{optim}
-  algorithm.  See \code{\link{optim}} for details.
-}
-\value{
-  An object of class \code{\linkS4class{PointProcessModel}} containing the
-  estimated parameters.
+  The \code{optim} method can always be specified via a named
+  \code{method} argument, which is passed to \code{optim}. The L-BFGS-B
+  algorithm allows for box-constraints on the parameters. This can be
+  required, e.g. if \eqn{\phi}{phi} is the identity, as mentioned
+  above. The lower and upper bounds are specified in the call by setting
+  the additional arguments \code{lower} and \code{upper} that are passed
+  to the \code{optim} algorithm.  See \code{\link{optim}} for details.
+  Note that for estimates computed using box-constraints with one or
+  more parameter value(s) on the boundary of the parameter space, the
+  estimated standard errors based on the inverse Fisher information are
+  unreliable. This holds true for the default method with the identity
+  \eqn{\phi}{phi} function as well.}
+
+  \value{ An object of class \code{\linkS4class{PointProcessModel}}
+  containing the estimated parameters.
 
   Use \code{summary} to get a standard summary output from the
   fitted model.

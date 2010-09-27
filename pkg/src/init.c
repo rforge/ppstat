@@ -4,10 +4,10 @@
 
 void F77_NAME(sgram)(double *sg0, double *sg1, double *sg2,double *sg3, double *tb, int *nb);
 		   
-SEXP computeModelMatrix(SEXP t, SEXP B, SEXP delta, SEXP s);
-		   
+SEXP computeFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP zero, SEXP type);
+
 static const R_CallMethodDef CallEntries[] = {
-    {"computeModelMatrix", (DL_FUNC) &computeModelMatrix, 4},
+    {"computeFilterMatrix", (DL_FUNC) &computeFilterMatrix, 6},
     {NULL, NULL, 0}
 };
 

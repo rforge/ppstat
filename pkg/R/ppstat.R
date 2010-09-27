@@ -5,19 +5,38 @@
 ## bSpline replaces bs for convenience and provides easier computations
 ## of B-spline bases that we are using. Does not issue a warning when
 ## evaluated outside of knots. This will in fact be the rule rather
-## than the exception.
+## than the exception for point process usages.
 
-bSpline <- function(x,knots,...,trunc=0,whichColumns=NULL){
+bSpline <- function(x, knots, ..., sym = FALSE, trunc = NULL) {
   if(length(knots) <= 4) stop("Need at least 5 knots")
-  design <- splineDesign(knots,x,...,outer.ok=TRUE)
-  if(!is.null(whichColumns)) design <- design[,whichColumns]
-  if(!is.null(trunc)) design[x <= trunc,] <- 0
+  if(sym) {
+    design <- list()
+    
+    if(any(x>=0))
+      design[[1]] <- bSpline(x = x[x>=0], knots = knots, ..., trunc = NULL, sym = FALSE)
+
+    if(any(x < 0))
+      design[[2]] <- bSpline(x = -x[x<0], knots = knots, ..., trunc = NULL, sym = FALSE)
+    design <- do.call("rbind",design)
+  } else {
+    design <- splineDesign(knots,x,...,outer.ok=TRUE)
+  }
+  if(!is.null(trunc)) {
+    if(length(trunc) == 1) {
+      design[x <= trunc, ] <- 0
+    } else if(length(trunc) == 2) {
+      design[x <= trunc[1] | x > trunc[2], ] <- 0
+    } else {
+      stop("The truncation argument 'trunc' must be either a single numeric or a vector of length 2")
+    }
+  }
+  design <- design[,apply(design,2,function(s) any(s != 0))]
   return(design)
 }
 
 ## Truncated exponential
 
-tExp <- function(x,tLevel=1e-4){
+tExp <- function(x, tLevel=1e-4){
   y <- exp(x)
   y[y < tLevel] <- 0
   return(y)
@@ -25,14 +44,14 @@ tExp <- function(x,tLevel=1e-4){
 
 ## Constant function
 
-const <- function(x,y,c=1){
+const <- function(x, y, c=1){
   c*as.numeric(x<=y)
 }
 
 ### TODO: This should be changed to an S4 method and specialized to the
 ### different point process classes.
 
-print.summary.glppm <-  function (x, digits = max(3, getOption("digits") - 3), 
+print.summary.ppm <-  function (x, digits = max(3, getOption("digits") - 3), 
     signif.stars = getOption("show.signif.stars"), ...) 
 {
     cat("\nCall:\n")

@@ -2,22 +2,6 @@
 ### general gradient algorithm work. This should change into a class
 ### relying on reproducing kernels.
 
-setClass("PointProcessKernel",
-         representation(
-                        modelMatrix = "Matrix",
-                        recurrenceMatrix = "list", ### This is a list of sparse matrices of class "Matrix"
-###                        integrationMatrix = "list"
-                        labels = "list",          ### a list with two entries holding the term labels and idLevels
-                                                  ### used in the namings of the entries in the recurrenceMatrix
-                        g = "matrix",            ### A matrix of g-evalutions at 0,Delta,2Delta,...
-                        coefficients = "numeric",
-                        Omega = "matrix",
-                        penalization = "logical",
-                        var = "matrix",
-                        optimResult="list"
-                        ),
-         contains="PointProcess")
-
 setMethod("initialize","PointProcessKernel",
           function(.Object,
                    processData,
