@@ -1,12 +1,14 @@
 \name{PointProcess-class}
 \docType{class}
 \alias{PointProcess-class}
+\alias{processData}
+\alias{processData,PointProcess-method}
+\alias{processData<-}
+\alias{processData<-,PointProcess-method}
 \alias{computeMinusLogLikelihood,PointProcess-method}
 \alias{computeMinusLogLikelihood}
 \alias{formula,PointProcess-method}
 \alias{formula<-,PointProcess,formula-method}
-\alias{getProcessData,PointProcess-method}
-\alias{setProcessData<-,PointProcess,ProcessData-method}
 
 
 \title{Class "PointProcess"}
@@ -39,8 +41,7 @@
     \item{\code{optimResult}:}{a \code{"list"} containing the results
       from a call to \code{optim}.}
     
-    \item{\code{processDataEnv}:}{an environment used to store an object of
-      class \code{"ProcessData"} - the model data.}
+    \item{\code{processData}:}{a \code{"MarkedPointProcess"} - the model data.}
     
     \item{\code{support}:}{a \code{"numeric"}. The
       support, [a,b], of the linear filter functions as a vector of
@@ -60,10 +61,10 @@
     \item{formula<-}{\code{signature(model = "PointProcessModel",
 	value="formula")}: Sets the model formula.}
     
-    \item{getProcessData}{\code{signature(model = "PointProcessModel")}: Returns
+    \item{processData}{\code{signature(model = "PointProcessModel")}: Returns
       the process data.}
 
-    \item{setProcessData<-}{\code{signature(model = "PointProcessModel",
+    \item{processData<-}{\code{signature(model = "PointProcessModel",
 	value="ProcessData")}: Sets the process data.}
   
 	 }

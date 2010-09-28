@@ -37,7 +37,7 @@ SEXP computePointProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP ze
   double *xt, *xs, *xB, *xZ, d, w, diff, antip, target;
   SEXP Z, BDIM;
 
-  if(!isMatrix(B)) error("B must be a matrix when using computeModelMatrix");
+  if(!isMatrix(B)) error("B must be a matrix when using computePointProcessFilterMatrix");
  
   nt = length(t);
   BDIM = getAttrib(B, R_DimSymbol);

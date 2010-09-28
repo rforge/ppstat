@@ -44,8 +44,12 @@ tExp <- function(x, tLevel=1e-4){
 
 ## Constant function
 
-const <- function(x, y, c=1){
-  c*as.numeric(x<=y)
+const <- function(x, y, c = 1){
+  lesseq <- rep(TRUE, length(x))
+  if(!missing(y))
+    lesseq <- (x <= y)
+
+  return(c*as.numeric(lesseq))
 }
 
 ### TODO: This should be changed to an S4 method and specialized to the

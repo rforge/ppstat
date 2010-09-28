@@ -20,18 +20,19 @@ const(x, y, c = 1)
   a numeric.  
   }
   \item{y}{
-  a numeric.
+  an optional numeric.
 }
   \item{c}{
-  a numeric.  
+  an optional numeric.  
   }
 }
 
 \value{
-The function returns a numeric.   
-The result is \code{c} if \code{x <= y} and 0 otherwise. If \code{x} and
-\code{y} are vectors of equal length the result is a corresponding
-vector where the entries in \code{x} and \code{y} are compared. 
+  The function returns a numeric of the same length as \code{x}. The
+  result is constantly equal to \code{c} if \code{y} is missing. If
+  \code{y} is not missing the result is the vector \code{c *
+    as.numeric(x <= y)}. 
+  
 }
 
 \author{
@@ -41,9 +42,10 @@ vector where the entries in \code{x} and \code{y} are compared.
 
 \examples{
 
-const(10,5)
-const(5,10)
-const(1:10,rep(5,10),2)
+const(5)
+const(10, 5)
+const(5, 10)
+const(1:10, rep(5,10), 2)
 
 }
 \keyword{ math }

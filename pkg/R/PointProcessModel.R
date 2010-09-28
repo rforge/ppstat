@@ -3,6 +3,7 @@ pointProcessModel <- function(
                               data,
                               family,
                               support,
+                              N = 200,
                               Delta,
                               basisPoints,
                               Omega,
@@ -29,12 +30,17 @@ pointProcessModel <- function(
 
   if(missing(basisPoints))
     {
-      if(!(missing(support) & missing(Delta)))
+      if(!(missing(support)))
         {
-          if(length(support) == 1) support <- c(0,max(support[1],0))
+          if(length(support) == 1)
+            support <- c(0,max(support[1],0))
+          
+          if(missing(Delta))
+            Delta <- (support[2] - support[1])/N
+          
           basisPoints <- sort(unique(c(0,seq(support[1],support[2],Delta))))
         } else {
-          stop("Must specify either 'support' and 'Delta' or 'basisPoints'.")
+          stop("Must specify either 'support' or 'basisPoints'.")
         }
     } else {
       basisPoints <- sort(unique(c(0,basisPoints)))
@@ -100,11 +106,11 @@ pointProcessModel <- function(
 
 ## TODO: Implement the use of interaction terms.
 
-setMethod("computeBasis", c(model="PointProcessModel", form="ANY"),
-          function(model,form,...) {
+setMethod("computeBasis", c(model = "PointProcessModel", form = "ANY"),
+          function(model, form, ...) {
             
             if(class(form)[1] != "terms")
-              error("The 'form' argument must be of S3-class 'terms'")
+              stop("The 'form' argument must be of S3-class 'terms'")
             
             ## Basis evaluations for 'form' are computed if
             ## not already computed, locked and available in 'model@basisEnv$basis'.
@@ -367,24 +373,26 @@ browser()
             ## 'position/time' and non-filtered continuous time process
             ## components.
               
-            if(length(notFilterTerms) > 0 || attr(mt,"intercept")==1){
+            if(length(notFilterTerms) > 0 || attr(mt, "intercept") == 1){
               form <-  mt[notFilterTerms]
               variables <- all.vars(form)
+
+              ## TODO: Implement the use of unit variables
               
-              if(all(variables %in% c("id","position","time",colnames(getValue(processData))))) {
+              if(all(variables %in% c(processData@idVar, processData@positionVar, colnames(getValue(processData))))) {
                 values <- list()
                 
-                values[[1]] <- data.frame(id=getId(processData))
+                values[[1]] <- data.frame(getId(processData))
+                names(values[[1]]) <- processData@idVar
                 
-                if("time" %in% variables)
-                  values[[2]] <- data.frame(time=getPosition(processData))
+                if(processData@positionVar %in% variables) {
+                  values[[2]] <- data.frame(getPosition(processData))
+                  names(values[[2]]) <-  processData@positionVar
+                }               
                 
-                if("position" %in% variables)
-                  values[[2]] <- data.frame(position=getPosition(processData))
-                
-                otherVariables <- variables[!(variables %in% c("id","position","time"))]
+                otherVariables <- variables[!(variables %in% c(processData@idVar, processData@positionVar))]
                 if(length(otherVariables) > 0) {
-                  values[[3]] <- as.matrix(getValue(processData)[,otherVariables,drop=FALSE])
+                  values[[3]] <- as.matrix(getValue(processData)[ , otherVariables, drop=FALSE])
                   rownames(values[[3]]) <- NULL
                 }
                 
@@ -399,8 +407,11 @@ browser()
             }
             
             
-            
-            modelMatrix <- cBind(X0, do.call("cBind",design))
+            if(exists("X0")) {
+              modelMatrix <- cBind(X0, do.call("cBind",design))
+            } else {
+              modelMatrix <- do.call("cBind",design)
+            }
             attr(modelMatrix, "assign") <- assign
             form <- formula(model)
             attr(form, "filterTerms") <- which(!(seq(along=termLabels) %in% notFilterTerms))
@@ -571,7 +582,7 @@ setMethod("predict","PointProcessModel",
 setMethod("termPlot","PointProcessModel",
           function(model, alpha = 0.05, layer = geom_line(), trans = NULL, ...) {
             if(alpha <= 0 || alpha > 1)
-              error("The 'alpha' level must be in (0,1]")
+              stop("The 'alpha' level must be in (0,1]")
 
             if(length(attr(formula(model),"filterTerms")) == 0){
               print("No filter function terms to plot")
@@ -777,12 +788,15 @@ setMethod("summary", "PointProcessModel",
             q[se==0] <- NA
             se[se==0] <- NA
             
-            result$coefficients <- matrix(c(object@coefficients,se,z,q),ncol=4)
-            zapNames <- sapply(strsplit(names(object@coefficients),""),
-                               function(x) {
-                                 end <- x[seq(max(length(x)-5,1),length(x))]
-                                 if(length(x) > 18) end <- c("...",x[seq(max(length(x)-2,1),length(x))])
-                                 paste(c(x[1:min(max(length(x)-6,1),12)],end),sep="",collapse="")
+            result$coefficients <- matrix(c(object@coefficients, se, z, q), ncol=4)
+            zapNames <- sapply(names(object@coefficients),
+                               function(y) {
+                                 x <- strsplit(y, "")
+                                 if(length(x) > 18){
+                                   end <- c("...", x[(length(x)-2):length(x)])
+                                   return(paste(c(x[1:12],end), sep = "", collapse = ""))
+                                 }
+                                   return(y)
                                })
                              
             
@@ -806,7 +820,6 @@ setMethod("vcov", "PointProcessModel",
 setMethod("update", "PointProcessModel",
           function(object, formula = .~., warmStart = TRUE, fixedCoefficients = list(), ...){
 
-            object@call <- match.call()
             modelFormula <- formula(object)
             updatedFormula <- update(modelFormula, formula)
             updatedTermLabels <- attr(terms(updatedFormula), "term.labels")
@@ -855,6 +868,10 @@ setMethod("update", "PointProcessModel",
             
             if(length(fixedCoefficients) != 0) object@coefficients[fixedCoefficients$which] <- fixedCoefficients$value
             object@fixedCoefficients <- fixedCoefficients
+
+            call <- as.list(object@call)
+            call$formula <- formula(object)
+            object@call <- as.call(call)
             
             return(ppmFit(object, ...))
           }
