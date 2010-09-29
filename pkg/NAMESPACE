@@ -1,0 +1,46 @@
+useDynLib(ppstat, .registration = TRUE)
+
+import(processdata,
+       Matrix,
+       ggplot2,
+       splines,
+       methods)
+
+importFrom("stats",
+           coefficients,
+           family,
+           formula,
+           predict,
+           vcov)
+
+exportClasses(Family,
+              PointProcess,
+              PointProcessKernel,
+              PointProcessModel,
+              PointProcessSmooth)
+
+export(bSpline,
+       const,
+       Hawkes,
+       Gibbs,
+       pointProcessModel,
+       pointProcessSmooth,
+       tExp)
+
+S3method(print,
+         summary.ppm)
+
+exportMethods(coefficients,
+              computeMinusLogLikelihood,
+              computeDMinusLogLikelihood,
+              computeDDMinusLogLikelihood,
+              family,
+              getLinearFilter,
+              predict,
+              ppmFit,
+              processData,
+              subset,
+              summary,
+              termPlot,
+              update,
+              vcov)

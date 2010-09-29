@@ -334,8 +334,8 @@ setMethod("computeModelMatrix","PointProcessModel",
                   design[[term]] <- do.call("rBind",designList)
                   colnames(design[[term]]) <- colnames(getBasis(model,term))
                 } else if(all(variable %in% c(DcontinuousVar,"d.position","d.time"))) {
-                  computeBasis(model,mt[i])
-                  assign <- c(assign,rep(i,dim(getBasis(model,term))[2]))
+                  computeBasis(model, mt[i])
+                  assign <- c(assign, rep(i, dim(getBasis(model,term))[2]))
                   designList <- list()    
 
                   ## Central loop over 'idLevels' and computations of
@@ -370,37 +370,45 @@ browser()
             }            
 
             ## Model matrix computations for terms involving 'id',
-            ## 'position/time' and non-filtered continuous time process
-            ## components.
+            ## 'position/time', unit variables and non-filtered
+            ## continuous time process components.
               
             if(length(notFilterTerms) > 0 || attr(mt, "intercept") == 1){
               form <-  mt[notFilterTerms]
+              attr(form, "intercept") <-  attr(mt, "intercept")
               variables <- all.vars(form)
-
-              ## TODO: Implement the use of unit variables
               
-              if(all(variables %in% c(processData@idVar, processData@positionVar, colnames(getValue(processData))))) {
+              if(all(variables %in% c(processData@idVar, processData@positionVar, colnames(getValue(processData)), colnames(getUnitData(processData))))) {
                 values <- list()
-                
-                values[[1]] <- data.frame(getId(processData))
-                names(values[[1]]) <- processData@idVar
+
+                if(processData@idVar %in% variables || attr(mt, "intercept") == 1) {
+                  values[[1]] <- data.frame(getId(processData))
+                  names(values[[1]]) <- processData@idVar
+                }
                 
                 if(processData@positionVar %in% variables) {
                   values[[2]] <- data.frame(getPosition(processData))
                   names(values[[2]]) <-  processData@positionVar
-                }               
-                
-                otherVariables <- variables[!(variables %in% c(processData@idVar, processData@positionVar))]
-                if(length(otherVariables) > 0) {
-                  values[[3]] <- as.matrix(getValue(processData)[ , otherVariables, drop=FALSE])
-                  rownames(values[[3]]) <- NULL
+                }
+
+                unitVariables <- colnames(getUnitData(processData)) %in% variables
+                if(any(unitVariables)) {
+                  values[[3]] <- getUnitData(processData)[as.numeric(getId(processData)),
+                                                          unitVariables,
+                                                          drop = FALSE]
                 }
                 
-                values <- do.call("cbind", values[!sapply(values,is.null)])
+                otherVariables <-  colnames(getValue(processData)) %in% variables 
+                if(any(otherVariables)) {
+                  values[[4]] <- as.matrix(getValue(processData)[ , otherVariables, drop=FALSE])
+                  rownames(values[[4]]) <- NULL
+                }
+                
+                values <- do.call("cbind", values[!sapply(values, is.null)])
                 tmp <- model.matrix(form, values)
                ## termPos <- c(0,sapply(attr(terms(form),"term.labels"),function(t) which(t == termLabels),USE.NAMES=FALSE))
                 assign <- c(c(0,notFilterTerms)[attr(tmp,"assign")+1],assign)
-                X0 <- Matrix(tmp,dimnames=dimnames(tmp), sparse=TRUE)
+                X0 <- Matrix(tmp, dimnames = dimnames(tmp), sparse=TRUE)
               } else {
                 stop(paste("Use of non existing variable(s) in:", form))
               }

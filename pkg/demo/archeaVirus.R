@@ -1,0 +1,46 @@
+data(archeaVirus)
+
+## 7 archea virus genomes. Gene start and end positions and sequence
+## similarity hits (on plus or minus strands, protein or nucleotide
+## sequence match) of CRISPRs (clusters of regularly interspaced
+## palindromic repeats) from the archea genome.
+
+archeaVirusSIRV1 <- subset(archeaVirus, id == "SIRV1")
+plot(archeaVirusSIRV1[, -c(1,2)])
+
+## Model of pPlus occurring in the neighborhood of GeneStart or GeneEnd on
+## plus or minus strand. Only SIRV1 analyzed.
+
+archeaPPM <- pointProcessModel(pPlus ~ bSpline(GeneStartPlus, knots = seq(-500,500,100)) +
+                               bSpline(GeneStartMinus, knots = seq(-500,500,100)) +
+                               bSpline(GeneEndPlus, knots = seq(-500,500,100)) +
+                               bSpline(GeneEndMinus, knots = seq(-500,500,100)),
+                               data = archeaVirusSIRV1,
+                               family = Gibbs("log"),
+                               Delta = 1, support = c(-500,500))
+summary(archeaPPM)
+termPlot(archeaPPM,trans=exp)
+
+## Similar model, but of nPlus.
+
+archeaPPM <- pointProcessModel(nPlus ~ bSpline(GeneStartPlus, knots = seq(-500,500,100)) +
+                               bSpline(GeneStartMinus, knots = seq(-500,500,100)) +
+                               bSpline(GeneEndPlus, knots = seq(-500,500,100)) +
+                               bSpline(GeneEndMinus, knots = seq(-500,500,100)),
+                               data = archeaVirusSIRV1,
+                               family = Gibbs("log"),
+                               Delta = 1, support = c(-500,500))
+summary(archeaPPM)
+termPlot(archeaPPM,trans=exp)
+
+## Different model including all 7 genomes with a genome and strand
+## specific intensity of nPlus occurrences depending on whether the
+## position is within a gene or not. Patience, it takes a little while
+## for the estimation to finish.
+
+archeaPPM <- pointProcessModel(nPlus ~ id + id:(MinusStrand + PlusStrand),
+                               data = archeaVirus,
+                               family = Gibbs("log"),
+                               Delta = 1, support = 500)
+summary(archeaPPM)
+
