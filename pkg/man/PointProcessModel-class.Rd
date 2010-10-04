@@ -19,6 +19,7 @@
 \alias{setModelMatrix<-,PointProcessModel,ANY-method}
 \alias{setModelMatrix<-}
 \alias{plot,PointProcessModel-method}
+\alias{predict,PointProcessModel-method}
 \alias{show,PointProcessModel-method}
 \alias{subset,PointProcessModel-method}
 \alias{vcov,PointProcessModel-method}
@@ -27,7 +28,7 @@
 \description{
   
   An object of class \code{"PointProcessModel"} is returned from the
-  constructor \code{pointProcessModel} and contains the fitted
+  constructor \code{pointProcessModel}. It contains the fitted
   generalized linear point process model. The class inherits class
   \code{"PointProcess"}. The constructor \code{pointProcessSmooth}
   returns an object of class \code{"PointProcessSmooth"}, which 
@@ -37,8 +38,8 @@
 \section{Objects from the Class}{
   
   Objects can be created by calls of the form
-  \code{pointProcessModel(formula, data, family, basisPoints)} where
-  \code{data} is an object of class \code{ProcessData}.
+  \code{pointProcessModel(formula, data, family, support)} where
+  \code{data} is an object of class \code{MarkedPointProcess}.
   
   The model object contains the data used for fitting the model and a
   formula specification of the model. When the object is the result of
@@ -112,7 +113,6 @@
 
     \item{computeLinearPredictor}{\code{signature(model =
 	"PointProcessModel")}: Computes the linear predictor.}
-
     
     \item{computeModelMatrix}{\code{signature(model =
 	"PointProcessModel")}: Computes the model matrix.}
@@ -120,10 +120,22 @@
     \item{getModelMatrix}{\code{signature(model =
 	"PointProcessModel")}: Returns the model matrix.}
 
+    \item{getLinearFilter}{\code{signature(model =
+	"PointProcessModel")}\code{(model, se = FALSE, nr, ...)}: Returns the values
+	of the linear filter functions as a \code{data.frame}. If
+	\code{se = TRUE}, the functions returns a list with the linear
+	filter functions in the first component and the estimated
+	standard errors in the second component.}
+
      \item{setModelMatrix<-}{\code{signature(model =
 	 "PointProcessModel",value = "Matrix")}: Sets the model matrix.}
 
-     \item{plot}{\code{signature(model =
+      \item{predict}{\code{signature(object =
+	 "PointProcessModel")}: Returns the intensity. This is the
+	 linear predictor, as computed by \code{computeLinearPredictor},
+	 transformed by \eqn{\phi}{phi}.}
+     
+     \item{termPlot}{\code{signature(model =
 	 "PointProcessModel")}: Plots the (estimated) linear filter
        functions.}
      
@@ -137,11 +149,11 @@
     \item{subset}{\code{signature(x = "PointProcessModel")}: Creates a
       new point process model based on a subset of the data by passing
       the argument(s) to the subset method for the process data, see
-      \code{\linkS4class{ProcessData}}. The \code{family} and
+      \code{\linkS4class{MarkedPointProcess}}. The \code{family} and
       \code{formula} are retained in the new model. }
 
     \item{update}{\code{signature(model = "PointProcessModel")}: See
-      \code{\link{update}} }
+      \code{\link{update}}.}
     
     \item{vcov}{\code{signature(model = "PointProcessModel")}: Returns
       the estimated variance matrix of the parameter estimator.}

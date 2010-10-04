@@ -3,100 +3,140 @@ pointProcessSmooth <- function(
                               data,
                               family,
                               support,
+                              lambda = 1,
+                              N = 200,
                               Delta,
                               basisPoints,
                               coefficients,
                               fixedCoefficients = list(),
                               fit = TRUE,
-                              modelMatrix = TRUE,
                               varMethod = 'Fisher',
+                              basisEnv,
                               ...) {
   
-  processDataEnv <- new.env(.GlobalEnv)
-  processDataEnv$processData <- data
-  lockEnvironment(processDataEnv,bindings=TRUE)
-
-  modelMatrixEnv <- new.env(parent=.GlobalEnv)
-  modelMatrixEnv$modelMatrix <- Matrix()
-
-  ## TODO: Check if ... has a basisEnv, in which case that environment is used instead.
-  basisEnv <- new.env(parent=.GlobalEnv)
-  basisEnv$basis <- list()
-
-  if(missing(Omega))
-    {
-      Omega <- matrix()  ### TODO: Here goes new stuff ...
-      penalization <- TRUE
-    }
+  call <- match.call()
+  argList <- as.list(call)[-1]
+  argList$fit <- FALSE
 
   if(missing(basisPoints))
     {
-      if(!(missing(support) & missing(Delta)))
+      if(!(missing(support)))
         {
-          if(length(support) == 1) support <- c(0,max(support[1],0))
-          basisPoints <- seq(support[1],support[2],Delta)
+          if(length(support) == 1)
+            support <- c(0,max(support[1],0))
         } else {
-          stop("Must specify either 'support' and 'Delta' or 'basisPoints'.")
+          stop("Must specify either 'support' or 'basisPoints'.")
         }
     } else {
       support = range(basisPoints)
-      Delta = min(diff(basisPoints))
     }
-      
-  delta <- as.numeric(unlist(tapply(getPosition(getContinuousProcess(data)),
-                                    getId(getContinuousProcess(data)),
-                                    function(x) c(diff(x),0)),use.names=FALSE))
+  ### Construction of the basis expansions
+  terms <- terms(formula, "s")
+  specials <- attr(terms, "specials")$s
+  specialVar <- lapply(as.list(attr(terms, "variables"))[1+specials], all.vars)
+  ## if(is.list(specialVar))
+  ##   stop("Wrong specification of some smoother term.")
+  ## if(length(specials) != length(specialVar))
+  ##   stop("Some smoother term is applied to more than one variable.")
 
-  varMethods <- c('none','Fisher')
-  if(!(varMethod %in% varMethods)){
-    warning(paste("Method '", varMethod, "' for variance matrix estimation is currently not supported. Using method 'Fisher'.", sep=""))
-    varMethod <- 'Fisher'
+  if(attr(terms, "response") == 0)
+    stop("No response variable specified.") 
+
+  response <- all.vars(as.list(attr(terms, "variables"))[[1+attr(terms, "response")]])
+  termLabels <- attr(terms, "term.labels")
+  specialTerms <- which(apply(attr(terms, "factor")[specials, ] > 0, 2, any))
+  knots <- list()
+  fList <- list()
+  ## TODO: Clean this up! Ask on R-devel if there is
+  ## a problem with environments for functions ....
+  ## Is this simply lazy evaluation ... ?
+  termFunction <- function(knots) {
+    fknots <- knots
+    function(x) bSpline(x, knots = fknots)
   }
-  
-
-  model <- new("PointProcessSmooth",
-               processDataEnv = processDataEnv,
-               delta = delta,
-               formula = formula,
-               family = family,
-               call = match.call(),
-               support = support,
-               basisPoints = basisPoints,
-               Delta = Delta,
-               modelMatrixEnv = modelMatrixEnv,
-               Omega = Omega,
-               penalization = penalization,
-               varMethod = varMethod,
-               basisEnv = basisEnv,
-               ...)
-  
-  if(modelMatrix) {
-    model <- computeModelMatrix(model)
+  for(i in seq_along(specialVar)) {
+    x <- getPointPosition(data)[getMarkType(data) %in% response]
+    y <- getPointPosition(data)[getMarkType(data) %in% specialVar[[i]]]
+    knots[[specialTerms[i]]] <- computeKnots(x, y, support, specialVar[[i]])
+    term <- paste("fList[[", specialTerms[i], "]](", specialVar[[i]], ")", sep = "")
+    fList[[specialTerms[i]]] <- termFunction(knots = knots[[specialTerms[i]]])
+    termLabels[specialTerms[i]] <- term
   }
 
-  parDim <- dim(getModelMatrix(model))[2]
+  formula <- reformulate(termLabels, response = response)
+
+  argList$formula <- formula
   
-  if(missing(coefficients)){
-    coefficients <- rep(0,parDim)
-  } else {
-    if(length(coefficients) != parDim) {
-      coefficients <- rep(0,parDim)
-      warning("Incorrect length of initial parameter vector. Initial parameters all set to 0")
+  model <- do.call("pointProcessModel", argList)
+  nrCoef <- dim(getModelMatrix(model))[2]
+  Omega <- matrix(0, ncol = nrCoef, nrow = nrCoef)
+
+  for(i in seq_along(specialTerms)) {
+    penCoef <- which(attr(getModelMatrix(model), "assign") == specialTerms[i])
+    d <- length(penCoef)
+    s1 <- s2 <- s3 <- s4 <- numeric(d)
+    s <-  .Fortran("sgram", as.double(s1), as.double(s2), as.double(s3), as.double(s4), as.double(knots[[specialTerms[i]]]), as.integer(d))
+    pen <- matrix(0, d, d)
+    diag(pen) <- s[[1]]
+    pen[seq(2,d*d,d+1)] <- pen[seq(d+1,d*d,d+1)] <- s[[2]][1:(d-1)]
+    pen[seq(3,d*(d-1),d+1)] <- pen[seq(2*d+1,d*d,d+1)] <- s[[3]][1:(d-2)]
+    pen[seq(4,d*(d-2),d+1)] <- pen[seq(3*d+1,d*d,d+1)] <- s[[4]][1:(d-3)]
+    Omega[penCoef, penCoef] <- pen
     }
-  }            
 
-  if(length(fixedCoefficients) != 0) coefficients[fixedCoefficients$which] <- fixedCoefficients$value
-  model@fixedCoefficients <- fixedCoefficients
-  coefficients(model) <- coefficients
+  model@Omega <- lambda*Omega
+  model@penalization <- TRUE
   
-  if(fit){
-    model <- ppmFit(model,...)
-  }
-
+  if(fit) 
+    model <- ppmFit(model, ...)
+  
+  model@call <- call
+  model <- as(model, "PointProcessSmooth")
   return(model)
 }
 
+computeKnots <- function(x, y, support, variables, strategy = "log", method = "s", ...) {
+  ## TODO: Implement this in C!?
+  differences <- outer(x, y, '-')
+  differences <- differences[differences > support[1] & differences < support[2]]
+  ## TODO: Implement different strategies for "thinning". This one from
+  ## smooting.spline
+  sknotl <- function(x, nk = NULL)
+    {
+      ## if (!all.knots)
+      ## return reasonable sized knot sequence for INcreasing x[]:
+      n.kn <- function(n) {
+        ## Number of inner knots
+        if(n < 50L) n
+        else trunc({
+          a1 <- log( 50, 2)
+          a2 <- log(100, 2)
+          a3 <- log(140, 2)
+          a4 <- log(200, 2)
+          if	(n < 200L) 2^(a1+(a2-a1)*(n-50)/150)
+          else if (n < 800L) 2^(a2+(a3-a2)*(n-200)/600)
+          else if (n < 3200L)2^(a3+(a4-a3)*(n-800)/2400)
+          else  200 + (n-3200)^0.2
+        })
+      }
+      n <- length(x)
+      if(is.null(nk)) nk <- n.kn(n)
+      else if(!is.numeric(nk)) stop("'nknots' must be numeric <= n")
+      else if(nk > n)
+        stop("cannot use more inner knots than unique 'x' values")
+      c(rep(x[1L], 3L), x[seq.int(1, n, length.out= nk)], rep(x[n], 3L))
+    }
+  
+  knots <- sknotl(c(support[1], sort(differences), support[2])) 
+  return(knots)
+}
+  
+  
+  
+  
+
 ## TODO: New summary function for an object of class 'PointProcessSmooth'.
+## TODO: New update function. Model matrix needs to be recomputed if we change response
 
 setMethod("summary","PointProcessSmooth",
           function(object,...) {

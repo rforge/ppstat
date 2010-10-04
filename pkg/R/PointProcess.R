@@ -11,32 +11,49 @@ setMethod("anticipating", "PointProcess",
 setMethod("computeMinusLogLikelihood", "PointProcess",
           function(model, coefficients = NULL, ...) {
             eta <- computeLinearPredictor(model, coefficients, ...)
-             if(attr(terms(model@formula), "response") != 0) {
-              response <- all.vars(model@formula, unique = FALSE)[attr(terms(model@formula), "response")]
-            } else {
-              stop("No response variable specified.")
-            }
+             if(isTRUE(response(model) == ""))
+               stop("No response variable specified.")
+            
             
             if(model@family@link == "log"){
               mll <-  sum(exp(eta)*model@delta) -
-                sum(eta[getPointPointer(processData(model), response)]) 
+                sum(eta[getPointPointer(processData(model), response(model))]) 
             } else {
               mll <-  sum(model@family@phi(eta)*model@delta) -
-                sum(log(model@family@phi(eta[getPointPointer(processData(model), response)]))) 
+                sum(log(model@family@phi(eta[getPointPointer(processData(model), response(model))]))) 
             }
             
             return(mll)
           }
           )
 
+setMethod("family","PointProcess",
+          function(object,...) {
+            return(object@family)
+          }
+          )
+
 setMethod("formula", "PointProcess",
-          function(x,...){
+          function(x, ...){
             return(x@formula)
+          }
+          )
+
+
+setMethod("response", "PointProcess",
+          function(model, ...){
+            return(model@response)
           }
           )
 
 setReplaceMethod("formula", c(model = "PointProcess", value = "formula"),
                  function(model, value){
+                   if(attr(terms(value), "response") != 0) {
+                     ## TODO: Is the response always in position 2 in this list/call?
+                     model@response <- all.vars(attr(terms(value), "variables")[[2]]) 
+                   } else {
+                     model@response <- ""
+                   }
                    model@formula <- value
                    return(model)
                  }

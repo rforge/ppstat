@@ -2,6 +2,7 @@
 \alias{pointProcessModel}
 \alias{pointProcessSmooth}
 \alias{ppmFit}
+\alias{ppmFit,PointProcessModel-method}
 
 \title{
   Construction and fitting of a generalized linear point process model.
@@ -9,7 +10,8 @@
 \description{
   
   The functions \code{pointProcessModel} and \code{pointProcessSmooth}
-  construct an object of class \code{PointProcessModel} and fits a
+  construct objects of class \code{PointProcessModel} and
+  \code{PointProcessSmooth}, respectively, and fit a
   generalized linear point process model where the intensity function is
   given in terms of a linear predictor process; a linear combination of
   linear filters. The linear filters are specified through a symbolic
@@ -23,15 +25,15 @@ pointProcessModel(formula, data, family, support, N = 200, Delta, basisPoints,
   Omega, coefficients, fixedCoefficients = list(), modelMatrix = TRUE,
   fit = modelMatrix, varMethod = 'Fisher', basisEnv, ...)
 
-pointProcessSmooth(formula, data, family, support, Delta, basisPoints,
-  coefficients, fixedCoefficients = list(), fit = TRUE,
-  modelMatrix = TRUE, varMethod = 'Fisher', ...)
+pointProcessSmooth(formula, data, family, support, N = 200, Delta,
+  basisPoints, coefficients, fixedCoefficients = list(), fit = TRUE,
+  varMethod = 'Fisher', basisEnv, ...)
 
 ppmFit(model, control=list(), ...)
 }
 \arguments{
 
-  \item{formula}{an object of class \code{\link{formula}}: a symbolic
+  \item{formula}{an object of class \code{\link{formula}}. A symbolic
     description of the model to be fitted. The details of model
     specification are given under \sQuote{Details}.}
 
@@ -57,7 +59,7 @@ ppmFit(model, control=list(), ...)
     set to the length of the support divided by \code{N}. If specified,
     overrides the use of \code{N}.}
   
-  \item{basisPoints}{A \code{numeric} vector. Specifies the points where
+  \item{basisPoints}{a \code{numeric} vector. Specifies the points where
     the basis functions are evaluated. If missing, the basis functions
     are evaluated equidistantly at \code{Delta}-grid points in the
     support.}
@@ -124,7 +126,7 @@ ppmFit(model, control=list(), ...)
   that transforms the linear predictor process into the conditional
   intensity. 
 
-  The possibilities of specifying the linear predictor process in terms of the formula are
+  The possibilities for specifying the linear predictor process in terms of the formula are
   quite extensive. For instance, any variable corresponding to
   continuous process observations, unit specific variables, the unit
   identification variable or the position/time variable can enter in the
@@ -134,11 +136,11 @@ ppmFit(model, control=list(), ...)
   linear predictor process.  Interactions can be specified, e.g. if
   there is a column named \code{V} and the unit identification variable
   is \code{id}, the inclusion of \code{id*V} in the formula
-  specification will result in \code{id}-specific parameters for the
+  specification will result in unit specific parameters for the
   effect of \code{V} on the intensity. Standard rules for formula
   specification applies, e.g. \code{id*V} expands to \code{id + V +
   id:V}, and \code{id:V} by itself results in a different
-  parametrization. In addition, variables can be transformed used either
+  parametrization. In addition, variables can be transformed using either
   a single function or basis expansions. A model formula specification
   of the intensity that only relies on the variables listed above
   results in a (conditional) inhomogeneous Poisson process model.
@@ -157,7 +159,7 @@ ppmFit(model, control=list(), ...)
     s_n}, and \code{f(M)} is a term in the formula, the corresponding
   linear filter 
 
-  \eqn{\sum_{i : t-s_i \in \mathrm{support}} f(t-s_i)}{sum_{i: t-s_i \in support} f(t-s_i)}
+  \deqn{\sum_{i : t-s_i \in \mathrm{support}} f(t-s_i)}{sum_{i: t-s_i \in support} f(t-s_i)}
 
   then enters as a term in the linear predictor process.  Expansions of
   a filter function in terms of basis functions is possible, using
@@ -184,8 +186,8 @@ ppmFit(model, control=list(), ...)
   \code{f(V.d)} is a term in the formula, the corresponding
   linear filter 
 
-  \eqn{V(0) + \int_{t-\mathrm{support}} f(t-s) (V(s-) - V(0)) \mathrm{d}s
-  }{V(0) + int_{t-support} f(t-s) (V(s-) - V(0))ds}
+  \deqn{V_0 + \int_{\mathrm{support}} f(s) (V_{(t-s)-} - V_0) \mathrm{d}s
+  }{V(0) + int_{support} f(s) (V((t-s)-) - V(0))ds}
 
   then enters as a term in the linear predictor process. As for point
   processes, the filter function can be expanded using any set of basis
@@ -243,7 +245,7 @@ Maintainer: \email{Niels.R.Hansen@math.ku.dk}
 
 \seealso{
   \code{\linkS4class{PointProcessModel}},  \code{\link{update}},
-  \code{\link{optim}}, \code{bSpline}, \code{\link{termPlot}}.
+  \code{\link{optim}}, \code{\link{bSpline}}, \code{\link{termPlot}}.
 }
 \examples{
 data(toyData)
@@ -263,9 +265,16 @@ summary(toyPPM)
 \dontrun{## Plot of the filter function
 termPlot(toyPPM)}
 
-## Leaving out the intercept
-toyPPM <- update(toyPPM, .~ . -1)
+## Removing the baseline intensity.
+toyPPM <- update(toyPPM, .~. -1)
 summary(toyPPM)
+
+## Different intercept for each unit. This 'update' adds a term
+## not originally in the model, thus the model matrix will be
+## recomputed. 
+toyPPM <- update(toyPPM, .~. + id)
+summary(toyPPM)
+
 
 }
 \keyword{models}

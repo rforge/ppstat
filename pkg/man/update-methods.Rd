@@ -29,7 +29,11 @@
   \item{fixedCoefficients}{a \code{list}. Paramters that should be fixed 
     specified as a list containing the two entries \code{which} and
     \code{values} that give the position in the parameter vector and the
-    value, respectively, of the parameters that should be fixed.}
+    value, respectively, of the parameters that should be fixed. The
+    \code{which} vector of positions is with respect to the updated
+    model parameters. Note that if \code{fixedCoefficients} is
+    specified, it overides any fixed coefficients in \code{object} - no
+    attempt is made to merge the two sets of fixed coefficients.}
 
   \item{...}{additional arguments to the call. Passed on to \code{ppmFit}.}
 }
@@ -68,18 +72,25 @@
   single supermodel it is therefore recommended to fit the supermodel
   first and use \code{update} to fit the different submodels.
 
-  The current implementation of \code{update} works by using the assignment of
-  columns in the model matrix to terms in the formula. This assignment
-  is given by the attribute \code{assign} to the model matrix. A new model
-  is identified as a submodel if all terms in the new model are terms in
-  the original model. The updated model matrix consists of the columns
-  that are assigned to a term in the new model. An important consequence
-  is that if the full model includes interactions, the updated model
-  may not be parametrized as expected nor as if the model was specified
-  using \command{pointProcessModel}. A warning is therefore always given if there are
-  interactions in the full model. There are also other cases, e.g. if
-  one removes the intercept, where the updated model may not be as
-  expected due to contrasts. How to deal with this problem is currently unsolved.  
+  The current implementation of \code{update} works by using the
+  assignment of columns in the model matrix to terms in the
+  formula. This assignment is given by the attribute \code{assign} to
+  the model matrix. A new model is identified as a submodel if all terms
+  in the new model are terms in the original model. The definition used
+  is that the updated model matrix consists of the columns that are
+  assigned to a term in the new model. A consequence of this is that the
+  updated model may not be parametrized as expected nor as if the model
+  was specified using \command{pointProcessModel}. This is in particular
+  the case when interactions are included, in which case a warning is
+  currently given when using update. There are also other cases, in
+  particular if one removes the intercept, where the updated model may
+  not be as expected. At a deeper level these issues are due to the
+  contrasts used when including factors in the orginal formula
+  specification. Nothing is currently done in the code to deal with
+  this. To avoid obvious pitfalls, don't remove a term using update if
+  there is a higher order term involving the same variable(s). In
+  particular, don't remove the intercept if there are factors in the
+  model and don't remove a factor if it is included in an interaction. 
 
   For any submodel the model matrix is given by reference
   to the full model matrix of the supermodel. Therefore,

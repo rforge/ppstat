@@ -11,8 +11,8 @@ Archea virus genome data.
   palindromic repeats - in archea, crenarchaeal acidothermophiles)
   matches in 7 archea virus
   genomes. Matches have marks according to whether they are on the plus
-  or minus strand of the virus genome, and whether the match is a protein or nucleotide
-  sequence similarity match. Gene start and end positions are included.
+  or minus strand of the virus genome, and whether the match is a
+  protein only or also a nucleotide sequence similarity match. Gene start and end positions are included.
 
 }
 \usage{data(archeaVirus)}
@@ -24,7 +24,7 @@ Archea virus genome data.
 
 \details{
 
-  The data set have 2 continuous process variables and 8 marks for 7
+  The data set has 2 continuous process variables and 8 marks for 7
   different virus genomes. The
   continuous process variables are mere indicators of the genes on the
   plus and minus strand, respectively. Of the 8 marks the first 4 give
@@ -37,11 +37,12 @@ Archea virus genome data.
   segments from the archea virus genome or if the segments are
   associated with the genes in the virus genome.
 
-  Analyzing the protein sequence similarity matches suggests that for
+  Analyzing the total set of matches, including those matches found at
+  the protein sequence level, suggests that
   such an association is present. However, this can potentially be
   explained by a difference in mutation rates for the gene coding versus
   non-coding regions of the virus genome at the protein sequence level.
-  Analyzing the nucleotide sequence similarity matches suggests that
+  Analyzing the nucleotide only sequence similarity matches suggests that
   such an association is not present. At least, not detectable with the
   current data set.
 

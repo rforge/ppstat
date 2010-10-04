@@ -7,8 +7,8 @@
   Hawkes or Gibbs process.
 }
 \usage{
-Hawkes(link = "root", ...)
-Gibbs(link = "root", ...)
+Hawkes(link = "root", \dots)
+Gibbs(link = "root", \dots)
 }
 \arguments{
   \item{link}{a \code{character}. Specifies the link function. 

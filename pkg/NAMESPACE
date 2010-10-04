@@ -13,9 +13,10 @@ importFrom("stats",
            predict,
            vcov)
 
+           
+
 exportClasses(Family,
               PointProcess,
-              PointProcessKernel,
               PointProcessModel,
               PointProcessSmooth)
 
@@ -35,10 +36,13 @@ exportMethods(coefficients,
               computeDMinusLogLikelihood,
               computeDDMinusLogLikelihood,
               family,
+              formula,
+              getInformation,
               getLinearFilter,
               predict,
               ppmFit,
               processData,
+              stepInformation,
               subset,
               summary,
               termPlot,

@@ -8,7 +8,7 @@
 ## than the exception for point process usages.
 
 bSpline <- function(x, knots, ..., sym = FALSE, trunc = NULL) {
-  if(length(knots) <= 4) stop("Need at least 5 knots")
+  if(length(knots) <= 4) stop("Needs at least 5 knots.")
   if(sym) {
     design <- list()
     
@@ -17,9 +17,9 @@ bSpline <- function(x, knots, ..., sym = FALSE, trunc = NULL) {
 
     if(any(x < 0))
       design[[2]] <- bSpline(x = -x[x<0], knots = knots, ..., trunc = NULL, sym = FALSE)
-    design <- do.call("rbind",design)
+    design <- do.call("rbind", design)
   } else {
-    design <- splineDesign(knots,x,...,outer.ok=TRUE)
+    design <- splineDesign(knots, x, ..., outer.ok=TRUE)
   }
   if(!is.null(trunc)) {
     if(length(trunc) == 1) {
@@ -27,10 +27,10 @@ bSpline <- function(x, knots, ..., sym = FALSE, trunc = NULL) {
     } else if(length(trunc) == 2) {
       design[x <= trunc[1] | x > trunc[2], ] <- 0
     } else {
-      stop("The truncation argument 'trunc' must be either a single numeric or a vector of length 2")
+      stop("The truncation argument 'trunc' must be either a single numeric or a vector of length 2.")
     }
   }
-  design <- design[,apply(design,2,function(s) any(s != 0))]
+  design <- design[ , apply(design, 2, function(s) any(s != 0))]
   return(design)
 }
 

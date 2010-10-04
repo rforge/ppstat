@@ -1,7 +1,7 @@
 \name{Family-class}
 \docType{class}
 \alias{Family-class}
-\alias{initialize,Family-method}
+\alias{family,Family-method}
 \alias{makeLink}
 
 \title{Class "Family"}
@@ -31,7 +31,8 @@ Alternatively, the constructors \code{\link{Hawkes}} and
 }		
 \section{Methods}{
   \describe{
-    \item{initialize}{\code{signature(.Object = "Family")}.}
+    \item{family}{\code{signature(object = "Family")}: Returns the
+      family name as a \code{character}.}
   }   
 }
     

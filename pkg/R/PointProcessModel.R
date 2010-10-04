@@ -38,7 +38,7 @@ pointProcessModel <- function(
           if(missing(Delta))
             Delta <- (support[2] - support[1])/N
           
-          basisPoints <- sort(unique(c(0,seq(support[1],support[2],Delta))))
+          basisPoints <- sort(unique(c(0, seq(support[1], support[2], Delta))))
         } else {
           stop("Must specify either 'support' or 'basisPoints'.")
         }
@@ -54,8 +54,8 @@ pointProcessModel <- function(
 
   model <- new("PointProcessModel",
                delta = delta,
-               formula = formula,
                family = family,
+               formula = .~.,
                call = match.call(),
                processData = data,
                support = support,
@@ -65,6 +65,8 @@ pointProcessModel <- function(
                penalization = penalization,
                varMethod = varMethod)
 
+  formula(model) <- formula
+  
   if(!anticipating(model)) {
     model@basisPoints <- model@basisPoints[model@basisPoints >= 0]
     model@support[1] <- max(0,model@support[1])
@@ -85,21 +87,23 @@ pointProcessModel <- function(
   parDim <- dim(getModelMatrix(model))[2]
   
   if(missing(coefficients)){
-    coefficients <- rep(.Machine$double.eps,parDim)
+    coefficients <- rep(.Machine$double.eps, parDim)
   } else {
     if(length(coefficients) != parDim && parDim != 0) {
-      coefficients <- rep(.Machine$double.eps,parDim)
+      coefficients <- rep(.Machine$double.eps, parDim)
       warning("Incorrect length of initial parameter vector. Initial parameters all set to 0")
     }
   }            
 
-  if(length(fixedCoefficients) != 0) coefficients[fixedCoefficients$which] <- fixedCoefficients$value
+  if(length(fixedCoefficients) != 0)
+    coefficients[fixedCoefficients$which] <- fixedCoefficients$value
+
   model@fixedCoefficients <- fixedCoefficients
   coefficients(model) <- coefficients
             
-  if(fit){
+  if(fit)
     model <- ppmFit(model,...)
-  }
+  
 
   return(model)
 }
@@ -160,22 +164,22 @@ setReplaceMethod("coefficients",c(model="PointProcessModel",value="numeric"),
 setMethod("computeDMinusLogLikelihood","PointProcessModel",
           function(model, coefficients = NULL, ...){
             eta <- computeLinearPredictor(model, coefficients, ...)
-             if(attr(terms(formula(model)),"response") != 0) {
-              response <- all.vars(formula(model),unique=FALSE)[attr(terms(formula(model)), "response")]
-            } else stop("no response variable specified")
+             if(isTRUE(response(model) == ""))
+               stop("No response variable specified.")
+        
 
             if(model@family@link == "log") {
 
               dmll <- as.vector(t(exp(eta)*model@delta)%*%getModelMatrix(model)) -
-                colSums(getModelMatrix(model)[getPointPointer(processData(model), response),])
+                colSums(getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE])
 
             } else {
               
-              etaP <- eta[getPointPointer(processData(model), response)]
-              mmP <- getModelMatrix(model)[getPointPointer(processData(model), response), ]
+              etaP <- eta[getPointPointer(processData(model), response(model))]
+              mmP <- getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE]
 
-              dmll <-  as.vector(t(model@family@Dphi(eta)*model@delta)%*%getModelMatrix(model)) -
-                as.vector(t(model@family@Dphi(etaP)/model@family@phi(etaP))%*%mmP)
+              dmll <-  as.vector(t(model@family@Dphi(eta)*model@delta) %*% getModelMatrix(model)) -
+                as.vector(t(model@family@Dphi(etaP)/model@family@phi(etaP)) %*% mmP)
               
             }
             
@@ -187,9 +191,8 @@ setMethod("computeDMinusLogLikelihood","PointProcessModel",
 setMethod("computeDDMinusLogLikelihood", "PointProcessModel",
           function(model, coefficients = NULL, ...){
             eta <- computeLinearPredictor(model, coefficients, ...)
-             if(attr(terms(formula(model)),"response") != 0) {
-              response <- all.vars(formula(model),unique=FALSE)[attr(terms(formula(model)),"response")]
-            } else stop("no response variable specified")
+            if(isTRUE(response(model) == ""))
+              stop("No response variable specified.")
 
              if(model@family@link == "log"){
 
@@ -197,18 +200,18 @@ setMethod("computeDDMinusLogLikelihood", "PointProcessModel",
 
              } else if(model@family@link == "identity"){
 
-               etaP <- eta[getPointPointer(processData(model), response)]
-               mmP <- getModelMatrix(model)[getPointPointer(processData(model), response), ]
+               etaP <- eta[getPointPointer(processData(model), response(model))]
+               mmP <- getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE]
 
-               ddmll <-  as(crossprod(mmP,1/model@family@phi(etaP)^2*mmP),"matrix")
+               ddmll <-  as(crossprod(mmP, 1/model@family@phi(etaP)^2*mmP), "matrix")
 
              } else {
 
-               etaP <- eta[getPointPointer(processData(model), response)]
-               mmP <- getModelMatrix(model)[getPointPointer(processData(model), response), ]
+               etaP <- eta[getPointPointer(processData(model), response(model))]
+               mmP <- getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE]
 
                ddmll <-  as(crossprod(getModelMatrix(model), model@family@D2phi(eta)*model@delta*getModelMatrix(model)), "matrix") -
-                 as(crossprod(mmP,(model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2*mmP),"matrix")
+                 as(crossprod(mmP, (model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2*mmP),"matrix")
 
              }
             
@@ -466,14 +469,8 @@ setMethod("computeVar", "PointProcessModel",
           }
           )
 
-setMethod("family","PointProcessModel",
-          function(object,...) {
-            return(object@family)
-          }
-          )
-
-setMethod("getLinearFilter",c(model="PointProcessModel",se="logical"),
-          function(model,se=FALSE,nr,...){
+setMethod("getLinearFilter", c(model = "PointProcessModel"),
+          function(model, se = FALSE, nr, ...){
             mt <- delete.response(terms(formula(model)))
             ## TODO: filterTerms attribute first computed in compute model
             ## matrix. Should be computed globally prior to this!
@@ -481,30 +478,33 @@ setMethod("getLinearFilter",c(model="PointProcessModel",se="logical"),
             
             linearFilter <- list()
             design <- list()
-            if(isTRUE(se)) linearFilterSE <- list()
-            if(missing(nr)) nr <- length(model@basisPoints)
+            if(isTRUE(se))
+              linearFilterSE <- list()
+            
+            if(missing(nr))
+              nr <- length(model@basisPoints)
 
             for(j in filterTerms){
-              computeBasis(model,mt[j])
-              term <- attr(mt[j],"term.labels")
+              computeBasis(model, mt[j])
+              term <- attr(mt[j], "term.labels")
               NR <- dim(getBasis(model,term))[1]
               i <- seq_len(min(nr,NR))*floor(max(NR/nr,1))
               varName <- paste(all.vars(parse(text=term)),collapse=".")
-              design[[varName]] <- cbind(design[[varName]],getBasis(model,term)[i,,drop=FALSE])}
+              design[[varName]] <- cbind(design[[varName]], getBasis(model,term)[i,,drop=FALSE])}
 
             for(j in seq(along=design)){
               linearFilter[[j]] <- design[[j]] %*% coefficients(model)[dimnames(design[[j]])[[2]]]
               if(isTRUE(se))
-                linearFilterSE[[j]] <- sqrt(rowSums(design[[j]] %*% vcov(model)[dimnames(design[[j]])[[2]],dimnames(design[[j]])[[2]]] * design[[j]]))
+                linearFilterSE[[j]] <- sqrt(rowSums(design[[j]] %*% vcov(model)[dimnames(design[[j]])[[2]], dimnames(design[[j]])[[2]]] * design[[j]]))
             }
 
             names(linearFilter) <- names(design)
           
             lockEnvironment(model@basisEnv, bindings=TRUE)
             if(isTRUE(se)) {
-              return(list(linearFilter=cbind(data.frame(x=model@basisPoints[i]), as.data.frame(linearFilter)),se=linearFilterSE))
+              return(list(linearFilter = cbind(data.frame(x=model@basisPoints[i]), as.data.frame(linearFilter)), se = linearFilterSE))
             } else {
-              return(cbind(data.frame(x=model@basisPoints[i]), as.data.frame(linearFilter)))
+              return(cbind(data.frame(x = model@basisPoints[i]), as.data.frame(linearFilter)))
             }
               
           }
@@ -592,7 +592,7 @@ setMethod("termPlot","PointProcessModel",
             if(alpha <= 0 || alpha > 1)
               stop("The 'alpha' level must be in (0,1]")
 
-            if(length(attr(formula(model),"filterTerms")) == 0){
+            if(length(attr(formula(model), "filterTerms")) == 0){
               print("No filter function terms to plot")
               return(invisible())
             }
@@ -638,7 +638,7 @@ setMethod("ppmFit", "PointProcessModel",
               setModelMatrix(model) <- getModelMatrix(model)
             }
               
-            control <- c(list(maxit=1000),control)
+            control <- c(list(maxit=1000), control)
             
             if(length(fixedPar) != 0) {
               nrPar <- parDim -length(fixedPar$which)
@@ -785,7 +785,7 @@ setMethod("summary", "PointProcessModel",
             result$mll <- object@optimResult$value
             result$iter <- object@optimResult$counts
             result$convergence <- object@optimResult$convergence
-            result$aic <- 2*(result$mll +  result$df)
+            result$aic <- getInformation(object)
 
             ## TODO: Implement some way of summarizing 'residuals'
 
@@ -799,10 +799,10 @@ setMethod("summary", "PointProcessModel",
             result$coefficients <- matrix(c(object@coefficients, se, z, q), ncol=4)
             zapNames <- sapply(names(object@coefficients),
                                function(y) {
-                                 x <- strsplit(y, "")
+                                 x <- strsplit(y, "")[[1]]
                                  if(length(x) > 18){
                                    end <- c("...", x[(length(x)-2):length(x)])
-                                   return(paste(c(x[1:12],end), sep = "", collapse = ""))
+                                   return(paste(c(x[1:12], end), sep = "", collapse = ""))
                                  }
                                    return(y)
                                })
@@ -828,22 +828,22 @@ setMethod("vcov", "PointProcessModel",
 setMethod("update", "PointProcessModel",
           function(object, formula = .~., warmStart = TRUE, fixedCoefficients = list(), ...){
 
+            
             modelFormula <- formula(object)
             updatedFormula <- update(modelFormula, formula)
             updatedTermLabels <- attr(terms(updatedFormula), "term.labels")
-            superTermLabels <- attr(terms(attr(getModelMatrix(object,numeric()),"formula")),"term.labels")
+            superTermLabels <- attr(terms(attr(getModelMatrix(object, numeric()), "formula")), "term.labels")
+            attr(updatedFormula, "filterTerms") <- which(updatedTermLabels %in% attr(terms(modelFormula), "term.labels")[attr(modelFormula, "filterTerms")])
             
-            if(attr(terms(updatedFormula),"intercept")==1) updatedTermLabels <- c("Intercept",updatedTermLabels)
-            if(attr(terms(attr(getModelMatrix(object,numeric()),"formula")),"intercept")==1) superTermLabels <- c("Intercept",superTermLabels)
-
-            superTermLabels <- superTermLabels[unique(attr(getModelMatrix(object,numeric()),"assign"))+1]
-            
+            if(attr(terms(updatedFormula), "intercept") == 1) updatedTermLabels <- c("Intercept", updatedTermLabels)
+            if(attr(terms(attr(getModelMatrix(object,numeric()), "formula")), "intercept") == 1) superTermLabels <- c("Intercept", superTermLabels)
+           
             formula(object) <- updatedFormula
             
             if(length(object@modelMatrixCol) == 0){
               tmpCoef <- coefficients(object)
             } else {
-              tmpCoef <- rep(0,dim(getModelMatrix(object,numeric()))[2])
+              tmpCoef <- rep(.Machine$double.eps ,dim(getModelMatrix(object, numeric()))[2])
               tmpCoef[object@modelMatrixCol] <- coefficients(object)
             }
 
@@ -856,8 +856,8 @@ setMethod("update", "PointProcessModel",
               ## TODO: The following checks whether there are interactions in the model. There is a general problem with
               ## choices of contrasts in submodels that should be dealt with. Removing e.g. the intercept gives a peculiar
               ## model it seems ... 
-              if(any(attr(terms(modelFormula),"order") >= 2)) {
-                warning(paste(c(object@call,"Original model formula includes interaction terms. Check that updated model is as expected."),collapse="\n"),call.=FALSE)
+              if(any(attr(terms(modelFormula), "order") >= 2)) {
+                warning(paste(c(object@call,"Original model formula includes interaction terms. Check that updated model is as expected."),collapse="\n"), call. = FALSE)
               }
               if(length(col) == length(tmpCoef)) {
                 object@modelMatrixCol <- numeric()
@@ -871,16 +871,121 @@ setMethod("update", "PointProcessModel",
               }
             } else {
               object <- computeModelMatrix(object)
-              coefficients(object) <- rep(0,dim(getModelMatrix(object)[2]))
+              coefficients(object) <- rep(.Machine$double.eps, dim(getModelMatrix(object))[2])
             }
             
-            if(length(fixedCoefficients) != 0) object@coefficients[fixedCoefficients$which] <- fixedCoefficients$value
-            object@fixedCoefficients <- fixedCoefficients
+            if(length(fixedCoefficients) != 0) {
+              object@coefficients[fixedCoefficients$which] <- fixedCoefficients$value
+              object@fixedCoefficients <- fixedCoefficients
+            } else if(length(object@fixedCoefficients) != 0 && exists("col", inherits = FALSE)) {
+              fixedCoefficients <-  list() 
+              fixedCoefficients$which <- which(col %in% object@fixedCoefficients$which)
+              fixedCoefficients$value <- object@fixedCoefficients$value[object@fixedCoefficients$which %in% col]
+              object@fixedCoefficients <- fixedCoefficients
+              object@coefficients[fixedCoefficients$which] <- fixedCoefficients$value
+            } else {
+              object@fixedCoefficients <- list()
+            }   
+            
 
             call <- as.list(object@call)
             call$formula <- formula(object)
             object@call <- as.call(call)
             
             return(ppmFit(object, ...))
+          }
+          )
+
+setMethod("getInformation", "PointProcessModel",
+          function(model, k = 2, ...) {
+            df <- length(model@coefficients) - length(model@fixedCoefficients$which)
+            mll <- computeMinusLogLikelihood(model)
+            return(2*mll + k*df)
+          }
+          )
+
+setMethod("stepInformation", "PointProcessModel",
+          function(model, direction = "both", trace = 1, steps = 1000, warmStart = TRUE, k = 2, ...) {
+            if(trace == 1) 
+              cat(" Step \t  AIC \t\t Direction\n")
+            
+            AIC <- list()
+            models <- list()
+            models[["current"]] <- model
+            models$current@varMethod <- 'none'
+            step <- 1
+            initialForm <- terms(formula(model))
+            initialTerms <- attr(initialForm, "term.labels")
+            currentTerms <- initialTerms
+            termsToAdd <- character()
+            termsToRemove <- currentTerms
+            minDirection <- "start"
+            while(step < steps) {
+              AIC$current <- getInformation(models$current, k, ...)
+
+              if(trace == 1)
+                cat(" ", step, "\t", AIC$current, "\t ", minDirection, "\n")
+
+              if(trace == 2) {
+                cat("Step:", step, "\tAIC:", AIC$current, "\n")
+                cat("Model:", deparse(formula(models$current)), "\n")
+                cat("Direction:", minDirection, "\n\n")
+                
+              }
+
+              if(direction == "both") {
+                if(length(termsToAdd) > 0) {
+                  AIC$forward <- numeric(length(termsToAdd))
+                  names(AIC$forward) <- termsToAdd
+                  models$forward <- list()
+                  for(term in termsToAdd) {
+                    models$forward[[term]] <- update(models$current,
+                                                     as.formula(paste(".~. +", term)),
+                                                     warmStart = warmStart)
+                    AIC$forward[term] <- getInformation(models$forward[[term]], k, ...)
+                  }
+                }
+              }
+              
+              if(direction %in% c("both", "backward")) {
+                if(length(termsToRemove) > 1 || (length(termsToRemove) == 1 & (attr(initialForm, "intercept") == 1))) {
+                  AIC$backward <- numeric(length(termsToRemove))
+                  names(AIC$backward) <- termsToRemove
+                  models$backward <- list()
+                  for(term in termsToRemove) {
+                    models$backward[[term]] <- update(models$current,
+                                                      as.formula(paste(".~. -", term)),
+                                                      warmStart = warmStart)
+                    AIC$backward[term] <- getInformation(models$backward[[term]], k, ...)
+                  }
+                }
+              }
+
+              minDirection <- names(which.min(sapply(AIC, min)))
+
+              if(minDirection == "current")              
+                break()
+              
+              if(minDirection == "forward") {
+                termIndex <- which.min(AIC$forward)
+                models$current <- models$forward[[termIndex]]
+                termsToRemove <- currentTerms
+                currentTerms <- c(currentTerms, termsToAdd[termIndex]) 
+                termsToAdd <- termsToAdd[-termIndex]
+              }
+              
+              if(minDirection == "backward") {
+                termIndex <- which.min(AIC$backward)
+                models$current <-  models$backward[[termIndex]]
+                termsToAdd <- initialTerms[!(initialTerms %in% currentTerms)]
+                currentTerms <- termsToRemove[-termIndex]
+                termsToRemove <- currentTerms
+              }
+              
+              step <- step + 1
+            }
+            models$current@varMethod <- model@varMethod
+            model <- ppmFit(models$current)
+            return(invisible(model))
           }
           )

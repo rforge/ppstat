@@ -7,8 +7,11 @@
 \alias{processData<-,PointProcess-method}
 \alias{computeMinusLogLikelihood,PointProcess-method}
 \alias{computeMinusLogLikelihood}
+\alias{family,PointProcess-method}
 \alias{formula,PointProcess-method}
 \alias{formula<-,PointProcess,formula-method}
+\alias{response}
+\alias{response,PointProcess-method}
 
 
 \title{Class "PointProcess"}
@@ -38,6 +41,9 @@
     \item{\code{formula}:}{a \code{"formula"}. The model
       formula specifying the model.}
 
+     \item{\code{formula}:}{a \code{"character"}. The vector of 
+     response marks. Extracted from the \code{formula}.}
+
     \item{\code{optimResult}:}{a \code{"list"} containing the results
       from a call to \code{optim}.}
     
@@ -54,17 +60,23 @@
     \item{computeMinusLogLikelihood}{\code{signature(model =
 	"PointProcessModel")}: Computes the minus-log-likelihood
       function.}
+
+    \item{family}{\code{signature(object = "PointProcess")}: Return the
+    \code{Family} object from the model.} 
     
-    \item{formula}{\code{signature(model = "PointProcessModel")}: Returns
+    \item{formula}{\code{signature(model = "PointProcess")}: Returns
       the model formula.}
 
-    \item{formula<-}{\code{signature(model = "PointProcessModel",
-	value="formula")}: Sets the model formula.}
+    \item{formula<-}{\code{signature(model = "PointProcess",
+	value="formula")}: Sets the model formula and the response.}
+
+    \item{response}{\code{signature(model = "PointProcess")}: Returns
+      the response mark(s).}
     
-    \item{processData}{\code{signature(model = "PointProcessModel")}: Returns
+    \item{processData}{\code{signature(model = "PointProcess")}: Returns
       the process data.}
 
-    \item{processData<-}{\code{signature(model = "PointProcessModel",
+    \item{processData<-}{\code{signature(model = "PointProcess",
 	value="ProcessData")}: Sets the process data.}
   
 	 }

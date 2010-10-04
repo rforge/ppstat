@@ -20,28 +20,46 @@ License: \tab GPL version 2 or newer \cr
 LazyLoad: \tab yes\cr
 }
 
-\code{\link{pointProcessModel}} is the main function for constructing
-and fitting a generalized linear point process model to a dataset, which is stored as an object
-of class \code{\linkS4class{ProcessData}}. A ProcessData object contains two
-components, one object of class \code{\linkS4class{MarkedPointProcess}}
-containing the data of the modeled marked point process as well
-as any additional covariate marked point processes, and one
-object of class \code{\linkS4class{ContinuousProcess}} containing 
-potential continuous time covariate processes. The latter object
-will always hold the data as a series of observations at
-not necessarily equidistant (time) points.
+The package provides a framework for analyzing data from 
+multivariate point processes in time or one-dimensional space, aka
+marked point processes with discrete marks based on a specification of
+the conditional intensity process. The main function is
+\code{\link{pointProcessModel}}, which constructs and 
+and fits a generalized linear point process model to a dataset. The data
+need to be stored as an object
+of S4-class \code{\linkS4class{MarkedPointProcess}}. A
+\code{MarkedPointProcess} object can hold data 
+from a marked point process as well
+as additional (covariate) continuous processes. Another function is
+\code{\link{pointProcessSmooth}}, which implements automatic basis
+expansion and smoothing of linear filter functions. 
 
 The data structures for continuous and marked point processes are
-implemented in the package \code{\link{processdata}}.
+implemented in the separate package \code{\link{processdata}}.
 
 }
 \author{
-Niels Richard Hansen \email{Niels.R.Hansen@math.ku.dk}, with contributions from 
-	Lisbeth Carstensen \email{lisbeth@binf.ku.dk}.
+Niels Richard Hansen \email{Niels.R.Hansen@math.ku.dk}.
 
 Maintainer: \email{Niels.R.Hansen@math.ku.dk}
 }
 \references{
+
+  
+Andersen, P. K., Borgan, Ø., Gill, R. D. and Keiding,
+N. \emph{Statistical models based on counting processes}. Springer
+Series in Statistics, 1993. 
+
+Cook, R. J. and Lawless, J. F. \emph{The Statistical Analysis of
+  Recurrent Events }. Springer Series in Statistics for Biology and
+Health. 2007
+
+Daley, D. J. and Vere-Jones, D. \emph{An introduction to the theory of
+  point processes. Vol. I.} Springer Series in Probability and its
+  Applications, 2003.
+
+Jacobsen, M. \emph{Point process theory and applications.} Birkhäuser Series in
+Probability and its Applications, 2006.
 
 Hansen, N. R. \emph{Penalized maximum likelihood estimation for
   generalized linear point processes}. 	arXiv:1003.0848v1 
@@ -49,8 +67,14 @@ Hansen, N. R. \emph{Penalized maximum likelihood estimation for
 
 }
 
-\examples{
+\seealso{
+
+  \code{\linkS4class{MarkedPointProcess}},
+  \code{\linkS4class{PointProcessModel}},
+  \code{\link{pointProcessModel}},
+   \code{\link{pointProcessSmooth}}
 
 
 }
+
 \keyword{models}
