@@ -382,6 +382,10 @@ browser()
               variables <- all.vars(form)
               
               if(all(variables %in% c(processData@idVar, processData@positionVar, colnames(getValue(processData)), colnames(getUnitData(processData))))) {
+                ## TODO: Investigate if this build of the model matrix can exploit
+                ## sparse matrices more directly, if it is necessary to create the
+                ## values object, or if we could refer to a suitable environment?
+                
                 values <- list()
 
                 if(processData@idVar %in% variables || attr(mt, "intercept") == 1) {
@@ -408,10 +412,15 @@ browser()
                 }
                 
                 values <- do.call("cbind", values[!sapply(values, is.null)])
+                ## This sparse.model.matrix solution avoids the dense
+                ## model matrix, but does not produce the assign
+                ## attribute ...
+                ## X0 <- sparse.model.matrix(form, values)
+
                 tmp <- model.matrix(form, values)
-               ## termPos <- c(0,sapply(attr(terms(form),"term.labels"),function(t) which(t == termLabels),USE.NAMES=FALSE))
                 assign <- c(c(0,notFilterTerms)[attr(tmp,"assign")+1],assign)
                 X0 <- Matrix(tmp, dimnames = dimnames(tmp), sparse=TRUE)
+                assign <- c(c(0, notFilterTerms)[attr(X0, "assign") + 1], assign)
               } else {
                 stop(paste("Use of non existing variable(s) in:", form))
               }
@@ -487,10 +496,10 @@ setMethod("getLinearFilter", c(model = "PointProcessModel"),
             for(j in filterTerms){
               computeBasis(model, mt[j])
               term <- attr(mt[j], "term.labels")
-              NR <- dim(getBasis(model,term))[1]
+              NR <- dim(getBasis(model, term))[1]
               i <- seq_len(min(nr,NR))*floor(max(NR/nr,1))
-              varName <- paste(all.vars(parse(text=term)),collapse=".")
-              design[[varName]] <- cbind(design[[varName]], getBasis(model,term)[i,,drop=FALSE])}
+              varName <- paste(all.vars(parse(text = term)), collapse = ".")
+              design[[varName]] <- cbind(design[[varName]], getBasis(model, term)[i, ,drop=FALSE])}
 
             for(j in seq(along=design)){
               linearFilter[[j]] <- design[[j]] %*% coefficients(model)[dimnames(design[[j]])[[2]]]
@@ -637,8 +646,10 @@ setMethod("ppmFit", "PointProcessModel",
               modelMatrixEnv <- getModelMatrixEnv(model)
               setModelMatrix(model) <- getModelMatrix(model)
             }
-              
-            control <- c(list(maxit=1000), control)
+            
+            if(!("maxit" %in% names(control)))
+              control <- c(list(maxit = 1000), control)
+            
             
             if(length(fixedPar) != 0) {
               nrPar <- parDim -length(fixedPar$which)
@@ -715,7 +726,7 @@ setMethod("ppmFit", "PointProcessModel",
             if(!("method" %in% names(args))) args[["method"]] <- method
             if(!("lower" %in% names(args))) args[["lower"]] <- lower
                         
-            model@optimResult <- do.call("optim",args)
+            model@optimResult <- do.call("optim", args)
             
             if(length(fixedPar) == 0) {
               model@coefficients <- model@optimResult$par

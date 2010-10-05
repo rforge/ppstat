@@ -68,6 +68,7 @@ pointProcessSmooth <- function(
   argList$formula <- formula
   
   model <- do.call("pointProcessModel", argList)
+  ## TODO: Modify colnames for the model matrix. 
   nrCoef <- dim(getModelMatrix(model))[2]
   Omega <- matrix(0, ncol = nrCoef, nrow = nrCoef)
 
@@ -99,8 +100,8 @@ computeKnots <- function(x, y, support, variables, strategy = "log", method = "s
   ## TODO: Implement this in C!?
   differences <- outer(x, y, '-')
   differences <- differences[differences > support[1] & differences < support[2]]
-  ## TODO: Implement different strategies for "thinning". This one from
-  ## smooting.spline
+  ## TODO: Implement different strategies for "thinning". This one is taken from
+  ## smooting.spline directly ...
   sknotl <- function(x, nk = NULL)
     {
       ## if (!all.knots)
@@ -130,10 +131,6 @@ computeKnots <- function(x, y, support, variables, strategy = "log", method = "s
   knots <- sknotl(c(support[1], sort(differences), support[2])) 
   return(knots)
 }
-  
-  
-  
-  
 
 ## TODO: New summary function for an object of class 'PointProcessSmooth'.
 ## TODO: New update function. Model matrix needs to be recomputed if we change response

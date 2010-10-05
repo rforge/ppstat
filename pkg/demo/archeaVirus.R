@@ -62,5 +62,5 @@ archeaPPM <- pointProcessSmooth(pPlus + nPlus ~ s(GeneStartPlus) +
                                s(GeneEndMinus),
                                data = archeaVirusSIRV1,
                                family = Gibbs("log"),
-                               Delta = 1, support = c(-500,500), lambda = 5e4)
+                               Delta = 1, support = c(-500,500), lambda = 1e5)
 

@@ -96,7 +96,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
    *  s:     observed values
    */
 
-  int i, j, k, nt, nss, *nB, lookupIndexLeft, lookupIndexRight, entry, col;
+  int i, j, k, nt, *nB, lookupIndexLeft, lookupIndexRight, entry, col;
   double *xt, *xs, *xB, *xZ, *BB, d, w, xs0, diffLeft, diffRight;
   SEXP Z, BDIM;
 
@@ -183,6 +183,8 @@ SEXP computeFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP zero, SEXP typ
       case 'c':
 	PROTECT(Z = computeContinuousProcessFilterMatrix(t, B, delta, s, zero));
 	break;
+      default:
+	PROTECT(Z = allocMatrix(REALSXP,1,1));
       }
   UNPROTECT(2);
   return(Z);

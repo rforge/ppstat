@@ -25,7 +25,7 @@ pointProcessModel(formula, data, family, support, N = 200, Delta, basisPoints,
   Omega, coefficients, fixedCoefficients = list(), modelMatrix = TRUE,
   fit = modelMatrix, varMethod = 'Fisher', basisEnv, ...)
 
-pointProcessSmooth(formula, data, family, support, N = 200, Delta,
+pointProcessSmooth(formula, data, family, support, lambda = 1, N = 200, Delta,
   basisPoints, coefficients, fixedCoefficients = list(), fit = TRUE,
   varMethod = 'Fisher', basisEnv, ...)
 
@@ -50,6 +50,10 @@ ppmFit(model, control=list(), ...)
     \code{support[2]}. If \code{support} is of length 1 the support is the
     interval from 0 to \code{support[1]}. This argument must be
     specified if \code{basisPoints} is not.}
+
+  \item{lambda}{a \code{numeric}. The tuning parameter for the
+  penalization term used in \code{pointProcessSmooth}. Default value is
+  1.}
 
   \item{N}{a \code{numeric}. The number of basis function evaluations
     used in the support. Default value 200.}
@@ -107,6 +111,12 @@ ppmFit(model, control=list(), ...)
   linear point process model. The function sets up the model 
   specified in terms of a formula, and, if required, computes the  
   model matrix and fits the model to the data.
+
+  \code{pointProcessSmooth} is a wrapper to \code{pointProcessModel}
+  that treats terms in the formula of the form \code{s(.)} in a special
+  way. Such terms are replaced by an automatic basis expansion in terms
+  of B-splines, and the corresponding parameters will be penalized in
+  the standard way to ensure smoothness. 
 
   When calling \code{pointProcessModel} the three arguments
   \code{formula}, \code{data} and \code{family} must always be
@@ -224,15 +234,33 @@ ppmFit(model, control=list(), ...)
   unreliable. This holds true for the default method with the identity
   \eqn{\phi}{phi} function as well.}
 
-  \value{ An object of class \code{\linkS4class{PointProcessModel}}
+\value{ An object of class \code{\linkS4class{PointProcessModel}}
   containing the estimated parameters.
 
+  The function \code{pointProcessSmooth} returns an object of class
+  \code{\linkS4class{PointProcessSmooth}}, which is an extension of
+  \code{PointProcessModel}, but currently with an identical content. 
+  
   Use \code{summary} to get a standard summary output from the
   fitted model.
 
   Use \code{termPlot} on the resulting model to plot  the estimated
   filter function(s).
 }
+\note{
+
+  The functionality of  \code{pointProcessSmooth} is limited. It has one
+  standard scheme for the computation of the B-spline basis functions,
+  and there is currently no automatic selection of the tuning
+  parameter. Moreover, the various functions inherited from class
+  \code{PointProcessModel} that can be applied to an
+  object of class \code{PointProcessSmooth} may produce misleading
+  information. There is e.g. no correction of the degrees of freedom,
+  nor of the AIC statistics owing to the fact that this is a smoothed
+  and penalized fit.  
+  
+}
+
 \references{
   Hansen, N. R. \emph{Penalized maximum likelihood estimation for
   generalized linear point processes}. 	arXiv:1003.0848v1. \url{http://arxiv.org/abs/1003.0848} 

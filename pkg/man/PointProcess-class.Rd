@@ -41,7 +41,7 @@
     \item{\code{formula}:}{a \code{"formula"}. The model
       formula specifying the model.}
 
-     \item{\code{formula}:}{a \code{"character"}. The vector of 
+     \item{\code{response}:}{a \code{"character"}. The vector of 
      response marks. Extracted from the \code{formula}.}
 
     \item{\code{optimResult}:}{a \code{"list"} containing the results
