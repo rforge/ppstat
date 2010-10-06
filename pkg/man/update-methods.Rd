@@ -10,13 +10,14 @@
 }
 \usage{
 
-\S4method{update}{PointProcessModel}(object, formula = .~., warmStart = TRUE, fixedCoefficients = list(), ...)
+\S4method{update}{PointProcessModel}(object, formula = .~., warmStart = TRUE,
+  fixedCoefficients = list(), ...)
 
 }
 \arguments{
   \item{object}{the \code{PointProcessModel} object to be updated.}
 
-  \item{formula}{Changes to the formula - see 'update.formula' for
+  \item{formula}{Changes to the formula - see \code{\link{update.formula}} for
     details. The default value \code{.~.} results in a refit of the
     model.}
 
@@ -26,7 +27,7 @@
     model, if possible, as initial values. Default is
     \code{TRUE}.}
   
-  \item{fixedCoefficients}{a \code{list}. Paramters that should be fixed 
+  \item{fixedCoefficients}{a \code{list}. Parameters that should be fixed 
     specified as a list containing the two entries \code{which} and
     \code{values} that give the position in the parameter vector and the
     value, respectively, of the parameters that should be fixed. The

@@ -7,24 +7,25 @@
 \description{
 
 This package implements statistical methods for one-dimensional marked
-point process model.
+point process models.
 
 }
 \details{
 \tabular{ll}{
 Package: \tab ppstat\cr
 Type: \tab Package\cr
-Version: \tab 0.65 \cr
-Date: \tab 2010-09-23 \cr
+Version: \tab 0.7 \cr
+Date: \tab 2010-10-07 \cr
 License: \tab GPL version 2 or newer \cr
+URL: \tab http://www.math.ku.dk/~richard/ppstat \cr
 LazyLoad: \tab yes\cr
 }
 
 The package provides a framework for analyzing data from multivariate
 point processes in time or one-dimensional space, aka marked point
-processes with discrete marks based on a specification of the
+processes with discrete marks, based on a specification of the
 conditional intensity process. The main function is
-\code{\link{pointProcessModel}}, which constructs and and fits a
+\code{\link{pointProcessModel}}, which constructs and fits a
 generalized linear point process model to a dataset. The data need to be
 stored as an object of S4-class
 \code{\linkS4class{MarkedPointProcess}}. A \code{MarkedPointProcess}

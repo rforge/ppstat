@@ -5,7 +5,7 @@
 \title{summary}
 \description{
   
-  Prints a summary of a fitted point process model constructed with
+  Computes and formats a summary of a fitted point process model constructed with
   e.g. \code{pointProcessModel} or \code{pointProcessSmooth}.
 
 }
@@ -28,23 +28,23 @@
 \value{
   The S4 method \command{summary} returns a list of S3-class
   \code{"summary.glppm"}. It contains the entries
-  \item{df}{degrees of freedom or effective degrees of freedom}
+  \item{df}{degrees of freedom or effective degrees of freedom.}
   \item{call}{the call used to generate the \code{PointProcessModel}
-    object}
+    object.}
   \item{mll}{the value of the minus-log-likelihood function in the
     estimated parameters.}
   \item{iter}{the number of function and gradient evaluations used in
     the numerical optimization.}
   \item{aic}{the AIC model selection criteria defined in this case as
-    2(mll + df)}
+    \code{2*(mll + df)}.}
   \item{coefficients}{a px4 matrix with the columns being the
     estimated parameters, estimated standard errors, z statistics and
     corresponding two-sided p-values.}
 }
 \details{
   
-  In the current implementation the degrees of freedom, df, is simply equal
-  to the number of parameters, p. Future extensions will offer the
+  In the current implementation the degrees of freedom, \code{df}, is simply equal
+  to the number of parameters. Future extensions will offer the
   possibility of L2 and L1 regularized fits and a corresponding
   computation of the effective degrees of freedom useful for model
   selection that differs from the actual number of parameters. 

@@ -38,8 +38,8 @@ Computes function evaluations
   
 }
 \value{
-A \code{"logical"}, which is \code{TRUE} if the variables are in the
-\code{varLabels} and \code{FALSE} otherwise.
+A \code{"logical"}, which is \code{TRUE} if the basis function
+evaluations are computed as they need to be.
 
 This function is called for its side effect of computing and storing the basis
 evaluations in the environment. If the environment is locked the

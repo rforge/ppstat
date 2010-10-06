@@ -16,10 +16,10 @@ geom_line(), trans = NULL, ...)
       confidence intervals. Default value \code{0.05}. A value of 1
       means no confidence intervals.}
   \item{layer}{a \code{proto} object specifying a ggplot2 layer. Default
-    layer \code{geom_line()}}
+    layer \code{geom_line()}.}
   \item{trans}{a function or character string. The function used to transform the linear filter functions
     before plotting.}
-  \item{...}{Additional arguments to the call}
+  \item{...}{other arguments.}
 
 }
 \value{
@@ -30,7 +30,7 @@ geom_line(), trans = NULL, ...)
 \details{
   
   The (estimated) linear filter functions in the
-  \code{PointProcessModel} are extracted plotted. Approximate pointwise level \code{1-alpha} confidence intervals
+  \code{PointProcessModel} are extracted and plotted. Approximate pointwise level \code{1-alpha} confidence intervals
   are also plotted.
 
   Setting \code{trans} to \code{exp}, the linear filters are

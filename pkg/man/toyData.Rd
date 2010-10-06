@@ -32,6 +32,7 @@ A small toy data set.
 \seealso{\code{\linkS4class{MarkedPointProcess}}}
 \examples{
 data(toyData)
-\dontrun{plot(toyData)}
+\dontrun{
+plot(toyData)}
 }
 \keyword{datasets}

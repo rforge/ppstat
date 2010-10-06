@@ -32,7 +32,7 @@
       support.}
     
     \item{\code{delta}:}{a \code{"numeric"}. The
-      interdistances between the observation (time) points.}
+      interdistances between the grid (time) points in the data set.}
     
     \item{\code{family}:}{an object of class \code{"Family"}. The family
       object specifying the specific interpretation of the formula
@@ -61,7 +61,7 @@
 	"PointProcessModel")}: Computes the minus-log-likelihood
       function.}
 
-    \item{family}{\code{signature(object = "PointProcess")}: Return the
+    \item{family}{\code{signature(object = "PointProcess")}: Returns the
     \code{Family} object from the model.} 
     
     \item{formula}{\code{signature(model = "PointProcess")}: Returns

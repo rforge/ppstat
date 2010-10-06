@@ -21,23 +21,24 @@
 }
 \usage{
 
-pointProcessModel(formula, data, family, support, N = 200, Delta, basisPoints,
-  Omega, coefficients, fixedCoefficients = list(), modelMatrix = TRUE,
-  fit = modelMatrix, varMethod = 'Fisher', basisEnv, ...)
+pointProcessModel(formula, data, family, support, N = 200, Delta,
+  basisPoints, Omega, coefficients, fixedCoefficients = list(),
+  modelMatrix = TRUE, fit = modelMatrix, varMethod = 'Fisher',
+  basisEnv, ...)
 
-pointProcessSmooth(formula, data, family, support, lambda = 1, N = 200, Delta,
-  basisPoints, coefficients, fixedCoefficients = list(), fit = TRUE,
-  varMethod = 'Fisher', basisEnv, ...)
+pointProcessSmooth(formula, data, family, support, lambda = 1,
+  allKnots = FALSE, N = 200, Delta,  basisPoints, coefficients,
+  fixedCoefficients = list(), fit = TRUE, varMethod = 'Fisher',
+  basisEnv, ...)
 
 ppmFit(model, control=list(), ...)
 }
 \arguments{
 
   \item{formula}{an object of class \code{\link{formula}}. A symbolic
-    description of the model to be fitted. The details of model
-    specification are given under \sQuote{Details}.}
+    description of the model to be fitted. See \sQuote{Details}.}
 
-  \item{data}{an object of class \code{\linkS4class{ProcessData}} containing
+  \item{data}{an object of class \code{\linkS4class{MarkedPointProcess}} containing
     the point process data as well as any continuous process data.}
 
   \item{family}{an object of class
@@ -54,6 +55,10 @@ ppmFit(model, control=list(), ...)
   \item{lambda}{a \code{numeric}. The tuning parameter for the
   penalization term used in \code{pointProcessSmooth}. Default value is
   1.}
+
+\item{allKnots}{a \code{logical}. Should all knots for the spline basis expansion be used in
+  \code{pointProcessSmooth}. If not, the same thinning algorithm is used as in \code{smoothing.spline}. Default value is
+  FALSE.}
 
   \item{N}{a \code{numeric}. The number of basis function evaluations
     used in the support. Default value 200.}
@@ -178,8 +183,8 @@ ppmFit(model, control=list(), ...)
   family and \eqn{\phi}{phi} function specification. The term \code{M}
   results in a linear filter function on the support, whereas the term
   \code{const(M)} results in a constant function on the support. Thus
-  an affine filter function can be obtained by including \code{const(M)
-  + M} in the formula.
+  an affine filter function can be obtained by including \code{I(const(M)
+  + M)} in the formula.
 
   As described above, there is a fundamental difference between the ways 
   a point process and a continuous process enter in the model
@@ -297,7 +302,7 @@ termPlot(toyPPM)}
 toyPPM <- update(toyPPM, .~. -1)
 summary(toyPPM)
 
-## Different intercept for each unit. This 'update' adds a term
+## Different baselines for each unit. This 'update' adds a term
 ## not originally in the model, thus the model matrix will be
 ## recomputed. 
 toyPPM <- update(toyPPM, .~. + id)

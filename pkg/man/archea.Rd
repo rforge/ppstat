@@ -42,7 +42,7 @@ Archea virus genome data.
   such an association is present. However, this can potentially be
   explained by a difference in mutation rates for the gene coding versus
   non-coding regions of the virus genome at the protein sequence level.
-  Analyzing the nucleotide only sequence similarity matches suggests that
+  Analyzing only the nucleotide sequence similarity matches suggests that
   such an association is not present. At least, not detectable with the
   current data set.
 

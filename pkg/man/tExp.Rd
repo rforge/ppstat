@@ -18,8 +18,8 @@ tExp(x, tLevel = 1e-04)
 	efficient storage using e.g. sparse matrices. 
 }
 \value{
-  \eqn{\exp(x)}{exp(x)} if \eqn{\exp(x) \leq \textrm{tLevel}}{exp(x) >= tLevel} and 0
-  if \eqn{\exp(x) < \textrm{tLevel}}{exp(x) < tLevel}.    
+  \eqn{\exp(x)}{exp(x)} if \eqn{\exp(x) \geq \code{tLevel}}{exp(x) >= \code{tLevel}} and 0
+  if \eqn{\exp(x) < \code{tLevel}}{exp(x) < \code{tLevel}}.    
 }
 \author{Niels Richard Hansen, \email{Niels.R.Hansen@math.ku.dk}}
 

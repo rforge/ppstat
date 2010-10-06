@@ -41,7 +41,7 @@ Alternatively, the constructors \code{\link{Hawkes}} and
   linear point process model as implemented in the class
   \code{PointProcessModel}. 
   
-  Two implemented families are \code{Hawkes} and the \code{Gibbs}
+  Two implemented families are the \code{Hawkes} and the \code{Gibbs}
   family. The link is the "inverse" of the \eqn{\phi}{phi} function
   specified as a text string to facilitate the use of standard
   conventions, e.g. the log-link function corresponds to
@@ -63,7 +63,7 @@ Alternatively, the constructors \code{\link{Hawkes}} and
   Using the identity link-function requires a constrained parameter
   space to ensure that the intensity for the point process model is
   positive. For this reason \eqn{\phi(x)=\max\{x,0\}}{\phi(x)=max(x,0)}
-  is often a better choice, which is obtained as the \code{'root'} link with
+  is often a better choice, which is obtained using the \code{'root'} link with
   \code{c=0} (the default).
 
   Note that in order to prevent taking the logarithm of 0 in the

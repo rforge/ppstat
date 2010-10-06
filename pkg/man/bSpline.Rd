@@ -25,7 +25,7 @@ bSpline(x, knots, ..., sym = FALSE, trunc = NULL)
     NULL, which means no truncation.}
   
   \item{\dots}{additional arguments passed to \code{splineDesign}, for
-    instance, \code{ord} which gives the order of the spline function,
+    instance, \code{ord} which gives the order of the spline functions,
     see \code{\link{splineDesign}}.}
   
 }

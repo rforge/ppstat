@@ -50,8 +50,7 @@
   A model matrix is by default computed from the data based on the
   formula when the object is created using
   \code{pointProcessModel}. Each row in the matrix corresponds to one
-  observation point in the \code{position} slot for the continuous
-  process object in \code{data}.
+  grid point in the data set.
 
 }
 \section{Slots}{
@@ -68,7 +67,7 @@
     \item{\code{fixedCoefficients}:}{list with two entries, \code{which}
       and \code{value}.}
 
-    \item{\code{modelMatrixCol}:}{a \code{numeric} vector containing }
+    \item{\code{modelMatrixCol}:}{a \code{numeric} vector.}
 
     \item{\code{modelMatrixEnv}:}{an environment that contains an
       object of class \code{"Matrix"} - the model matrix.}
@@ -94,7 +93,7 @@
   \describe{
     
     \item{coefficients}{\code{signature(object = "PointProcessModel")}:
-      Returns the estimated model paramters.}
+      Returns the estimated model parameters.}
 
     \item{coefficients<-}{\code{signature(.Object =
 	"PointProcessModel")}: Sets the model parameters.}
@@ -143,8 +142,8 @@
 	 "PointProcessModel")}: Prints the model object.}
 
       \item{summary}{\code{signature(object =
-	 "PointProcessModel")}: Summaries the model object. See
-	 \code{\link[=summary,PointProcessModel-method]{summary}}}
+	 "PointProcessModel")}: Summarizes the model object. See
+	 \code{\link[=summary,PointProcessModel-method]{summary}}.}
      
     \item{subset}{\code{signature(x = "PointProcessModel")}: Creates a
       new point process model based on a subset of the data by passing
