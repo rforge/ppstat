@@ -88,12 +88,15 @@ pointProcessModel <- function(
   
   if(missing(coefficients)){
     coefficients <- rep(.Machine$double.eps, parDim)
+    names(coefficients) <- dimnames(getModelMatrix(model))[[2]]
   } else {
     if(length(coefficients) != parDim && parDim != 0) {
       coefficients <- rep(.Machine$double.eps, parDim)
-      warning("Incorrect length of initial parameter vector. Initial parameters all set to 0")
+      names(coefficients) <- dimnames(getModelMatrix(model))[[2]]
+      warning(paste("Incorrect length of initial parameter vector. Initial parameters all set to", .Machine$double.eps))
     }
-  }            
+  }
+
 
   if(length(fixedCoefficients) != 0)
     coefficients[fixedCoefficients$which] <- fixedCoefficients$value
@@ -613,20 +616,28 @@ setMethod("termPlot","PointProcessModel",
               q <- qnorm(1-alpha/2)
             }
             
-            linearFilter <- getLinearFilter(model,se=se,nr=1000)
-            moltenFilter <- melt(linearFilter$linearFilter,id.vars="x")
+            linearFilter <- getLinearFilter(model, se = se, nr = 400)
             if(se) {
+              moltenFilter <- melt(linearFilter$linearFilter, id.vars = "x")
               plotData <- cbind(moltenFilter,
                                 data.frame(cf.lower = moltenFilter$value-q*unlist(linearFilter$se),
                                            cf.upper = moltenFilter$value+q*unlist(linearFilter$se)))
+              if(!is.null(trans))
+                plotData[, c("value", "cf.lower", "cf.upper")] <- do.call(trans,list(plotData[, c("value", "cf.lower", "cf.upper")]))
+            } else {
+              plotData <- melt(linearFilter, id.vars = "x")
+               if(!is.null(trans))
+                 plotData$value <- do.call(trans, plotData$value)
             }
-            if(!is.null(trans)) plotData[,c("value","cf.lower","cf.upper")] <- do.call(trans,list(plotData[,c("value","cf.lower","cf.upper")]))
+           
 
-            linearFilterPlot <- ggplot(data=plotData,aes(x=x,y=value)) +
-              facet_grid(.~variable) +
-                geom_ribbon(aes(min=cf.lower,max=cf.upper),fill=alpha("blue",0.2)) +
-                  scale_x_continuous("position") +
-                    scale_y_continuous("") + layer
+            linearFilterPlot <- ggplot(data = plotData, aes(x = x, y = value)) +
+              facet_grid(. ~ variable) +
+                scale_x_continuous("position") +
+                  scale_y_continuous("") + layer
+
+            if(se)
+              linearFilterPlot <- linearFilterPlot + geom_ribbon(aes(min = cf.lower, max = cf.upper), fill = alpha("blue", 0.2))
 
             return(linearFilterPlot)
           }

@@ -1,18 +1,19 @@
 pointProcessSmooth <- function(
-                              formula,
-                              data,
-                              family,
-                              support,
-                              lambda = 1,
-                              N = 200,
-                              Delta,
-                              basisPoints,
-                              coefficients,
-                              fixedCoefficients = list(),
-                              fit = TRUE,
-                              varMethod = 'Fisher',
-                              basisEnv,
-                              ...) {
+                               formula,
+                               data,
+                               family,
+                               support,
+                               lambda = 1,
+                               allKnots = FALSE,
+                               N = 200,
+                               Delta,
+                               basisPoints,
+                               coefficients,
+                               fixedCoefficients = list(),
+                               fit = TRUE,
+                               varMethod = 'Fisher',
+                               basisEnv,
+                               ...) {
   
   call <- match.call()
   argList <- as.list(call)[-1]
@@ -44,7 +45,14 @@ pointProcessSmooth <- function(
 
   response <- all.vars(as.list(attr(terms, "variables"))[[1+attr(terms, "response")]])
   termLabels <- attr(terms, "term.labels")
-  specialTerms <- which(apply(attr(terms, "factor")[specials, ] > 0, 2, any))
+  specialTerms <- which(apply(attr(terms, "factor")[specials, , drop = FALSE] > 0, 2, any))
+
+  if(allKnots) {
+    strategy <- "all"
+  } else {
+    strategy <- "log"
+  }
+  
   knots <- list()
   fList <- list()
   ## TODO: Clean this up! Ask on R-devel if there is
@@ -57,7 +65,7 @@ pointProcessSmooth <- function(
   for(i in seq_along(specialVar)) {
     x <- getPointPosition(data)[getMarkType(data) %in% response]
     y <- getPointPosition(data)[getMarkType(data) %in% specialVar[[i]]]
-    knots[[specialTerms[i]]] <- computeKnots(x, y, support, specialVar[[i]])
+    knots[[specialTerms[i]]] <- computeKnots(x, y, support, specialVar[[i]], strategy)
     term <- paste("fList[[", specialTerms[i], "]](", specialVar[[i]], ")", sep = "")
     fList[[specialTerms[i]]] <- termFunction(knots = knots[[specialTerms[i]]])
     termLabels[specialTerms[i]] <- term
@@ -100,9 +108,10 @@ computeKnots <- function(x, y, support, variables, strategy = "log", method = "s
   ## TODO: Implement this in C!?
   differences <- outer(x, y, '-')
   differences <- differences[differences > support[1] & differences < support[2]]
+  differences <- unique(differences)
   ## TODO: Implement different strategies for "thinning". This one is taken from
   ## smooting.spline directly ...
-  sknotl <- function(x, nk = NULL)
+  sknotl <- function(x, nk = "log")
     {
       ## if (!all.knots)
       ## return reasonable sized knot sequence for INcreasing x[]:
@@ -121,14 +130,18 @@ computeKnots <- function(x, y, support, variables, strategy = "log", method = "s
         })
       }
       n <- length(x)
-      if(is.null(nk)) nk <- n.kn(n)
+      if(isTRUE(nk == "log")){
+        nk <- n.kn(n)
+      } else if(isTRUE(nk == "all")) {
+        nk <- n
+      } 
       else if(!is.numeric(nk)) stop("'nknots' must be numeric <= n")
       else if(nk > n)
-        stop("cannot use more inner knots than unique 'x' values")
+        stop("Cannot use more inner knots than unique 'x' values.")
       c(rep(x[1L], 3L), x[seq.int(1, n, length.out= nk)], rep(x[n], 3L))
     }
   
-  knots <- sknotl(c(support[1], sort(differences), support[2])) 
+  knots <- sknotl(c(support[1], sort(differences), support[2]), nk = strategy) 
   return(knots)
 }
 
