@@ -9,6 +9,6 @@ Depends: R (>= 2.11.1), processdata (>= 0.6), ggplot2, Matrix, splines, methods
 Imports: stats
 Description: This package implements statistical methods for one-dimensional 
 	     marked point process models.  	  
-License: GPL version 2 or newer
+License: GPL (>= 2)
 URL: http://www.math.ku.dk/~richard/ppstat
 LazyLoad: yes
