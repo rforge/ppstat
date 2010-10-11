@@ -51,7 +51,7 @@ evaluations are not recomputed.
 Niels Richard Hansen, \email{Niels.R.Hansen@math.ku.dk}
 }
 
-\seealso{\code{\linkS4class{"PointProcessModel"}}
+\seealso{\code{\linkS4class{PointProcessModel}}
 }
 
 \keyword{math}
