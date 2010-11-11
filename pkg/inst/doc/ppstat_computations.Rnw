@@ -35,6 +35,8 @@ of Copenhagen Universitetsparken 5, 2100 Copenhagen \O, Denmark. \\
 Email address: richard@math.ku.dk}, \emph{University of Copenhagen} \\
 \end{center}
 
+\section{The likelihood and derivatives}
+
 The core computational problem in the use of point processes for
 statistical modeling is the optimization of the minus-log-likelihood
 function, which is given as
@@ -89,7 +91,7 @@ points. With $\Delta$ the $N$-dimensional vector of interdistances
 from the discretization we arrive at the approximation of the
 minus-log-likelihood function that we seek to minimize:
 \begin{eqnarray*}
-  l(\theta) \simeq  \Delta^T \phi\left( \theta^T Z \right) - \sum_{j=1}^n \log\phi\left( \theta^T Z(t_j) \right). 
+  l(\theta) \simeq  \Delta^T \phi\left( Z \theta \right) - \sum_{j=1}^n \log\phi\left( \theta^T Z(t_j) \right). 
 \end{eqnarray*}
 We have used the convention that $\phi$ applied to a vector means
 coordinate-wise applications of $\phi$. 
@@ -98,7 +100,7 @@ for a rapid computation of (the approximation to) $l$. The derivatives
 are likewise approximated as 
 
 \begin{eqnarray*}
-  D l(\theta) \simeq [\Delta \circ \phi'\left( \theta^T Z \right)]^T Z -
+  D l(\theta) \simeq [\Delta \circ \phi'\left( Z \theta \right)]^T Z -
   \sum_{j=1}^n \frac{\phi'\left( \theta^T Z(t_j)
     \right)}{\phi\left( \theta^T Z(t_j) \right)}Z(t_j)^T  
 \end{eqnarray*}
@@ -112,6 +114,11 @@ with $\circ$ the Hadamard (or coordinate-wise) matrix product and
 \end{eqnarray*}
 }
 
+\section{Algorithms for optimization}
+
+The BFGS and L-BFGS-B algorithms as implemented in R.
+
+The iterative weighted least squares algorithm. 
 
 
 

@@ -97,7 +97,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
    */
 
   int i, j, k, nt, *nB, lookupIndexLeft, lookupIndexRight, entry, col;
-  double *xt, *xs, *xB, *xZ, *BB, d, w, xs0, diffLeft, diffRight;
+  double *xt, *xs, *xB, *xZ, *BB, d, w, xs0, diffLeft, diffRight, epsilon;
   SEXP Z, BDIM;
 
   if(!isMatrix(B)) error("B must be a matrix when using computeModelMatrix.");
@@ -121,6 +121,9 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
 
   d = REAL(delta)[0];
   w = d*(nB[0]-1);
+  //This choice of epsilon is to make sure that certain floor commands 
+  //below return the desired integer even in borderline cases. 
+  epsilon = d/10;
 
   xs0 = xs[0];
   for(i = 0; i < nt; i++) {
@@ -146,21 +149,20 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
       entry = i + nt*j; 
       k = i-1;
       diffLeft = xt[i] - xt[k];
-      lookupIndexLeft = floor(diffLeft/d);
+      lookupIndexLeft = floor(diffLeft/d + epsilon);
       xZ[entry] = xB[lookupIndexLeft + col]*xs[k]*diffLeft;
-      diffRight = diffLeft;
-      k --;
+      lookupIndexRight = floor(diffLeft/d+epsilon);
+      k--;
       // printf("k: %d  diffLeft: %4.2f\n",k,diffLeft);
       while(k >= 0 && (diffLeft = xt[i] - xt[k]) <= w) 
 	{ 
-	    lookupIndexLeft = floor(diffLeft/d);
-	    lookupIndexRight = floor(diffRight/d);
+	    lookupIndexLeft = floor(diffLeft/d+epsilon);
 	    // This implementation of numerical integration uses a trapzoidal
 	    // rule for the filter function but the left value for the process.
 	    // The idea is to mimic 'predictability' and not anticipate 
 	    // (numerically) a jump if the process is e.g. a counting process. 
 	    xZ[entry] += (xB[lookupIndexLeft + col] + xB[lookupIndexRight + col])*xs[k]*(xt[k+1]-xt[k])/2;
-	    diffRight = diffLeft;
+	    lookupIndexRight = lookupIndexLeft;
 	    k--;
 	  }
       xZ[entry] += xs0;

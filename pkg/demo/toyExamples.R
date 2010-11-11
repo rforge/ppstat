@@ -19,7 +19,7 @@ toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-1,2,0.5)),
 summary(toyPPM)
 termPlot(toyPPM)
 
-## Alternative analysis. The filter function is composed of three
+## Alternative analysis. The filter function is composed of two
 ## constant components.
 
 toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0,1,2)),
@@ -42,7 +42,7 @@ summary(toyPPM)
 termPlot(toyPPM)
 
 ## But the behavior above is perhaps not as expected. The result is a
-## model equivalent to the model using 'cut(ALPHA,c(0,1,2)'. To get
+## model equivalent to the model using 'cut(ALPHA, c(0,1,2))'. To get
 ## the indicator function for the interval (0,1), use the formula
 ## below.
 
@@ -77,7 +77,7 @@ toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1,2,0.5)) 
 summary(toyPPM)
 termPlot(toyPPM,trans=exp)
 
-## Shifting to the Gibbs family allows for anticipation in the linear filter.
+## The Gibbs family allows for anticipation in the linear filter.
 
 toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-3,3,0.5)),
                             data = toyData,
@@ -87,7 +87,7 @@ toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-3,3,0.5)),
 summary(toyPPM)
 termPlot(toyPPM)
 
-## For the Gibbs family the filter function be made symmetric, if the
+## For the Gibbs family the filter function can be made symmetric, if the
 ## basis functions are. Using 'bSpline' this is achieved as follows.
 
 toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-3,3,0.5), sym = TRUE),

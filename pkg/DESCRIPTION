@@ -5,7 +5,7 @@ Version: 0.7
 Date: 2010-10-07
 Author: Niels Richard Hansen <Niels.R.Hansen@math.ku.dk>.
 Maintainer: Niels Richard Hansen <Niels.R.Hansen@math.ku.dk>
-Depends: R (>= 2.11.1), processdata (>= 0.6), ggplot2, Matrix, splines, methods
+Depends: R (>= 2.11.1), processdata (>= 0.6), ggplot2, Matrix, MatrixModels, splines, methods
 Imports: stats
 Description: This package implements statistical methods for one-dimensional 
 	     marked point process models.  	  
