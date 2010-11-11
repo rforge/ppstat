@@ -122,7 +122,7 @@ setMethod("computeBasis", c(model = "PointProcessModel", form = "ANY"),
             ## Basis evaluations for 'form' are computed if
             ## not already computed, locked and available in 'model@basisEnv$basis'.
             
-            if(attr(form,"response")==1) form <- delete.response(form)
+            if(attr(form, "response") == 1) form <- delete.response(form)
             term <- attr(form,"term.labels")
             if(environmentIsLocked(model@basisEnv))
               {
@@ -166,11 +166,10 @@ setReplaceMethod("coefficients",c(model="PointProcessModel",value="numeric"),
 
 setMethod("computeDMinusLogLikelihood","PointProcessModel",
           function(model, coefficients = NULL, ...){
+            if(isTRUE(response(model) == ""))
+              stop("No response variable specified.")
             eta <- computeLinearPredictor(model, coefficients, ...)
-             if(isTRUE(response(model) == ""))
-               stop("No response variable specified.")
-        
-
+            
             if(model@family@link == "log") {
 
               dmll <- as.vector(t(exp(eta)*model@delta)%*%getModelMatrix(model)) -
@@ -193,35 +192,100 @@ setMethod("computeDMinusLogLikelihood","PointProcessModel",
 
 setMethod("computeDDMinusLogLikelihood", "PointProcessModel",
           function(model, coefficients = NULL, ...){
-            eta <- computeLinearPredictor(model, coefficients, ...)
             if(isTRUE(response(model) == ""))
               stop("No response variable specified.")
 
-             if(model@family@link == "log"){
-
-               ddmll <-  as(crossprod(getModelMatrix(model), exp(eta)*model@delta*getModelMatrix(model)), "matrix")
-
-             } else if(model@family@link == "identity"){
-
-               etaP <- eta[getPointPointer(processData(model), response(model))]
-               mmP <- getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE]
-
-               ddmll <-  as(crossprod(mmP, 1/model@family@phi(etaP)^2*mmP), "matrix")
-
-             } else {
-
-               etaP <- eta[getPointPointer(processData(model), response(model))]
-               mmP <- getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE]
-
-               ddmll <-  as(crossprod(getModelMatrix(model), model@family@D2phi(eta)*model@delta*getModelMatrix(model)), "matrix") -
-                 as(crossprod(mmP, (model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2*mmP),"matrix")
-
-             }
+            eta <- computeLinearPredictor(model, coefficients, ...)
+            
+            if(model@family@link == "log"){
+              
+              ddmll <-  as(crossprod(getModelMatrix(model), exp(eta)*model@delta*getModelMatrix(model)), "matrix")
+              
+            } else if(model@family@link == "identity"){
+              
+              etaP <- eta[getPointPointer(processData(model), response(model))]
+              mmP <- getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE]
+              
+              ddmll <-  as(crossprod(mmP, 1/model@family@phi(etaP)^2*mmP), "matrix")
+              
+            } else {
+              
+              etaP <- eta[getPointPointer(processData(model), response(model))]
+              mmP <- getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE]
+              
+              ddmll <-  as(crossprod(getModelMatrix(model), model@family@D2phi(eta)*model@delta*getModelMatrix(model)), "matrix") -
+                as(crossprod(mmP, (model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2*mmP), "matrix")
+              
+            }
             
             return(ddmll)
             
           }
           )
+
+
+setMethod("computeWeights", "PointProcessModel",
+          function(model, coefficients = NULL, ...) {
+            if(isTRUE(response(model) == ""))
+              stop("No response variable specified.")
+            
+            eta <- computeLinearPredictor(model, coefficients, ...)
+          
+
+            if(model@family@link == "log"){
+
+              w <-  exp(eta)*model@delta
+
+             } else if(model@family@link == "identity"){
+
+               points <- getPointPointer(processData(model), response(model))
+               etaP <- eta[points]
+               w <- rep(0, length(eta))
+               w[points] <- 1/model@family@phi(etaP)^2
+
+             } else {
+
+               points <- getPointPointer(processData(model), response(model))
+               etaP <- eta[points]
+               w <- model@family@D2phi(eta)*model@delta
+               w[points] <- w[points] - (model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2
+             
+             }
+            
+            return(w)
+          }
+          )
+
+setMethod("computeWorkingResponse", "PointProcessModel",
+          function(model, coefficients = NULL, ...){
+            if(isTRUE(response(model) == ""))
+              stop("No response variable specified.")
+            eta <- computeLinearPredictor(model, coefficients, ...)
+            points <- getPointPointer(processData(model), response(model))
+            w <- computeWeights(model)
+            w[w < .Machine$double.eps] <- 1
+            
+            if(model@family@link == "log") {
+
+              wr <- exp(eta)*model@delta
+              wr[points] <- wr[points] - 1
+              wr <- eta - wr/w
+              
+            } else {
+              
+              etaP <- eta[points]
+
+              wr <-  model@family@Dphi(eta)*model@delta
+              wr[points] <- wr[points] - model@family@Dphi(etaP)/model@family@phi(etaP)
+              wr <- eta - wr/w
+              
+            }
+            
+            return(wr)
+            
+          }
+          )
+            
 
 setMethod("computeLinearPredictor","PointProcessModel",
           function(model,coefficients=NULL,...){
@@ -349,7 +413,6 @@ setMethod("computeModelMatrix","PointProcessModel",
                   ## 'computeFilterMatrix'. Result is
                   ## converted to a sparse matrix, bound together in one
                   ## matrix below and stored in the list 'design'.
-browser()
                   if(variable %in% c("d.position","d.time")) {
                     values <- getPosition(processData)
                   } else {
@@ -632,7 +695,7 @@ setMethod("termPlot","PointProcessModel",
            
 
             linearFilterPlot <- ggplot(data = plotData, aes(x = x, y = value)) +
-              facet_grid(. ~ variable) +
+              facet_grid(variable ~ ., scales = "free_y") +
                 scale_x_continuous("position") +
                   scale_y_continuous("") + layer
 
@@ -760,9 +823,39 @@ setMethod("ppmFit", "PointProcessModel",
           }
           )            
 
+setMethod("IWLS", "PointProcessModel",
+          function(model, control, ...) {
+
+            value <- computeMinusLogLikelihood(model)
+            reltol <- sqrt(.Machine$double.eps)
+            maxit <- 100
+            trace <- 1
+            
+            i <- 1
+            while(i < maxit) {
+              w <- computeWeights(model)
+              z <- computeWorkingResponse(model)
+              ## TODO: check when lm.fit.sparse becomes exported.
+              ## This is relying on an algorithm in the MatrixModels package still
+              ## under development. 
+              coefficients(model) <- MatrixModels:::lm.fit.sparse(getModelMatrix(model), z, w)
+              val <- computeMinusLogLikelihood(model)
+              i <- i + 1
+              if(trace > 0)
+                cat("Value: ", val, "\n")
+              if(value < reltol * (abs(value) + reltol) * value + val)
+                break
+              value <- val
+            }
+            
+            return(model)
+          }
+          )
+
+          
 
 setMethod("print","PointProcessModel",
-          function(x, digits= max(3, getOption("digits") - 3), ...){
+          function(x, digits = max(3, getOption("digits") - 3), ...){
             cat("\nCall:\n", deparse(x@call), "\n\n", sep = "")
             if (length(coefficients(x))) {
               cat("Coefficients:\n")

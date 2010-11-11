@@ -70,10 +70,12 @@ pointProcessSmooth <- function(
     fList[[specialTerms[i]]] <- termFunction(knots = knots[[specialTerms[i]]])
     termLabels[specialTerms[i]] <- term
   }
-
-  formula <- reformulate(termLabels, response = response)
-
-  argList$formula <- formula
+  
+  formula <- paste(paste(response, collapse = "+"), "~", paste(termLabels, collapse = "+"), collapse = "")
+  if(attr(terms, "intercept") == 0)
+    formula <- paste(formula, "-1", collapse = "")
+  
+  argList$formula <- as.formula(formula)
   
   model <- do.call("pointProcessModel", argList)
   ## TODO: Modify colnames for the model matrix. 
