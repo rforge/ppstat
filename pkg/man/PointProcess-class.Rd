@@ -68,7 +68,7 @@
       the model formula.}
 
     \item{formula<-}{\code{signature(model = "PointProcess",
-	value="formula")}: Sets the model formula and the response.}
+	value = "formula")}: Sets the model formula and the response.}
 
     \item{response}{\code{signature(model = "PointProcess")}: Returns
       the response mark(s).}
@@ -77,7 +77,7 @@
       the process data.}
 
     \item{processData<-}{\code{signature(model = "PointProcess",
-	value="ProcessData")}: Sets the process data.}
+	value = "ProcessData")}: Sets the process data.}
   
 	 }
 }

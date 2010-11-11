@@ -49,7 +49,7 @@ Alternatively, the constructors \code{\link{Hawkes}} and
   
   Implemented standard link functions are, \code{'log'}, \code{'logit'},
   \code{'cloglog'}, \code{'identity'}, \code{'root'},
-  \code{'logaffine'}.  The latter two requires the specification of the
+  \code{'logaffine'}.  The latter two require the specification of the
   additional parameter \code{c}, which by default is 0. For
   \code{'root'} the resulting \eqn{\phi}{phi}-function is
 

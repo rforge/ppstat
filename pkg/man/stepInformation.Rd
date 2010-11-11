@@ -67,7 +67,7 @@
 }
 \details{
 
-  N.B. The function \code{stepAIC} from the \pkg{MASS} was used as a
+  N.B. The function \code{stepAIC} from \pkg{MASS} was used as a
   template for this function. Several of the functionalities of \code{stepAIC}
   are currently not implemented in this method. 
 

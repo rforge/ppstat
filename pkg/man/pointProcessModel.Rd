@@ -135,7 +135,7 @@ ppmFit(model, control=list(), ...)
   variables. The \code{formula} alone specifies a \dfn{linear predictor
   process}, which consists of a linear combination of stochastic
   processes determined by the terms in the formula. The parameters to be
-  estimated in the model are the coefficients for this linear
+  estimated in the model are the coefficients in this linear
   combination. The stochastic processes are computed and stored in the
   model matrix. The \code{family} specifies a \eqn{\phi}{phi} function
   that transforms the linear predictor process into the conditional
@@ -212,7 +212,7 @@ ppmFit(model, control=list(), ...)
   not called directly by the user. The current implementation does
   numerical minimization of the minus-log-likelihood function using
   \code{optim} - in general using the BFGS-algorithm. However, if the identity
-   \eqn{\phi}{phi} function is used (choose \code{link="identity"} in the family
+   \eqn{\phi}{phi} function is used (choose \code{link = "identity"} in the family
   specification) the L-BFGS-B-algorithm is used
   instead, with the default lower bound \code{sqrt(Machine$double.eps)} on the
   intercept parameter and 0 on other parameters.  
@@ -262,9 +262,17 @@ ppmFit(model, control=list(), ...)
   object of class \code{PointProcessSmooth} may produce misleading
   information. There is e.g. no correction of the degrees of freedom,
   nor of the AIC statistics owing to the fact that this is a smoothed
-  and penalized fit.  
-  
+  and penalized fit.
+
+  The current implementation supports linear filters of continuous
+  processes through the \code{.d} notation in the formula. However, the
+  data structure allows for non-equidistant sampling, and the filter
+  computations are done using numeric integration and not
+  FFT. Consequently, the computation of the model matrix for large data
+  sets can be prohibitively slow.
+
 }
+
 
 \references{
   Hansen, N. R. \emph{Penalized maximum likelihood estimation for
