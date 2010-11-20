@@ -34,7 +34,7 @@ SEXP computePointProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP ze
    */
 
   int i, j, nt, ns, nss, *nB, lookupIndex, entry, col;
-  double *xt, *xs, *xB, *xZ, d, w, diff, antip, target;
+  double *xt, *xs, *xB, *xZ, d, w, diff, antip, target, epsilon;
   SEXP Z, BDIM;
 
   if(!isMatrix(B)) error("B must be a matrix when using computePointProcessFilterMatrix");
@@ -55,7 +55,11 @@ SEXP computePointProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP ze
   xZ = REAL(Z);
 
   d = REAL(delta)[0];
-  antip = d*(REAL(zero)[0]-1);
+  //This choice of epsilon is to make sure that certain floor commands 
+  //below return the desired integer even in borderline cases. 
+  epsilon = d/10;
+
+  antip = d*REAL(zero)[0];
   w = d*(nB[0]-1);
   
   for(j = 0; j < nB[1]; j++) {
@@ -71,7 +75,7 @@ SEXP computePointProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP ze
       if(diff > 0) {
 	while(diff <= w) 
 	  { 
-	    lookupIndex = floor(diff/d);
+	    lookupIndex = floor(diff/d + epsilon);
 	    xZ[entry] += xB[lookupIndex + col];
 	    ns--;
 	    if(ns < 0) break;

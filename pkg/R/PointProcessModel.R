@@ -430,7 +430,7 @@ setMethod("computeModelMatrix","PointProcessModel",
                                                     zero,
                                                     'c'), sparse=TRUE)
                   }
-                  design[[term]] <- do.call("rBind",designList)
+                  design[[term]] <- do.call("rBind", designList)
                   colnames(design[[term]]) <- colnames(getBasis(model,term))
                 } else {
                   ## The term does not involve filters
@@ -473,7 +473,7 @@ setMethod("computeModelMatrix","PointProcessModel",
                 
                 otherVariables <-  colnames(getValue(processData)) %in% variables 
                 if(any(otherVariables)) {
-                  values[[4]] <- as.matrix(getValue(processData)[ , otherVariables, drop=FALSE])
+                  values[[4]] <- as.data.frame(as.matrix(getValue(processData)[ , otherVariables, drop=FALSE]))
                   rownames(values[[4]]) <- NULL
                 }
                 
