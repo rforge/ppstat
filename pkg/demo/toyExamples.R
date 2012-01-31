@@ -1,6 +1,6 @@
 ################################################################################
 ### Small toy and test examples showing functionality, model specification and
-### plots of resulting estimates. Uses the toyData simulated date set.
+### plots of resulting estimates. Uses the toyData simulated data set.
 ################################################################################
 
 data(toyData)
@@ -10,7 +10,6 @@ plot(toyData)
 ## function with support [0,2], a linear parametrization and a
 ## basis expansion in terms of B-spline basis functions with knots
 ## equidistantly distributed from -1 to 2.
-
 toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-1,2,0.5)),
                             data = toyData,
                             family = Hawkes(),
@@ -54,8 +53,7 @@ toyPPM <- pointProcessModel(BETA ~ as.numeric(ALPHA < 1),
 summary(toyPPM)
 termPlot(toyPPM)
 
-## We can include self-dependence of the BETA-points modeled, and a
-## time trend.
+## We can include self-dependence of the BETA-points, and a time trend.
 
 toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1,2,0.5)) +
                             bSpline(BETA, knots = seq(-1,2,0.5)),
@@ -66,7 +64,7 @@ toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1,2,0.5)) 
 summary(toyPPM)
 termPlot(toyPPM)
 
-## We can change the 'link' function to be the log-link.
+## We can change the 'link' function to the log-link.
 
 toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1,2,0.5)) +
                             bSpline(BETA, knots = seq(-1,2,0.5)),
@@ -75,7 +73,7 @@ toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1,2,0.5)) 
                             support = 2,
                             Delta = 0.01)                       
 summary(toyPPM)
-termPlot(toyPPM,trans=exp)
+termPlot(toyPPM, trans = exp)
 
 ## The Gibbs family allows for anticipation in the linear filter.
 
@@ -102,17 +100,18 @@ termPlot(toyPPM)
 ## For the model to be a valid model of the point process,
 ## self-dependence terms are not allowed to be anticipating. It is
 ## valid for other terms to be anticipating, and using the Gibbs
-## family we can specify such a model.  WARNING: When using the Gibbs
+## family we can specify such a model. WARNING: When using the Gibbs
 ## family it is entirely up to the user to make sure that the filter
 ## function for the self-dependence term is 0 on the negative
 ## axis. Using 'bSpline' we set 'trunc = 0' to truncate the basis
 ## expansion at 0.
 
-toyPPM <- pointProcessModel(BETA ~ bSpline(BETA, knots = seq(-3,3,0.5), trunc = c(0,2)) +
-                            bSpline(ALPHA, knots = seq(-3,3,0.5, trunc = c(-2,2)), sym = TRUE),
+toyPPM <- pointProcessModel(BETA ~ bSpline(BETA, knots = seq(-3,3,1), trunc = 0) +
+                            bSpline(ALPHA, knots = seq(-3,3,1, trunc = c(-2,2))),
                             data = toyData,
                             family = Gibbs(),
                             support=c(-2,2),
                             Delta=0.01)
 summary(toyPPM)
-termPlot(toyPPM) + coord_cartesian(ylim=c(-2,2))
+termPlot(toyPPM)
++ coord_cartesian(ylim=c(-2,2))

@@ -21,7 +21,7 @@
 }
 \usage{
 
-pointProcessModel(formula, data, family, support, N = 200, Delta,
+pointProcessModel(formula, data, family, support = 1, N = 200, Delta,
   basisPoints, Omega, coefficients, fixedCoefficients = list(),
   modelMatrix = TRUE, fit = modelMatrix, varMethod = 'Fisher',
   basisEnv, ...)
@@ -49,8 +49,8 @@ ppmFit(model, control=list(), ...)
   \item{support}{a \code{numeric} vector. Specifies the support of the
     filter functions as the interval from \code{support[1]} to
     \code{support[2]}. If \code{support} is of length 1 the support is the
-    interval from 0 to \code{support[1]}. This argument must be
-    specified if \code{basisPoints} is not.}
+    interval from 0 to \code{support[1]}. Is ignored if
+    \code{basisPoints} is specified. The default value is 1.}
 
   \item{lambda}{a \code{numeric}. The tuning parameter for the
   penalization term used in \code{pointProcessSmooth}. Default value is
@@ -286,7 +286,8 @@ Maintainer: \email{Niels.R.Hansen@math.ku.dk}
 
 \seealso{
   \code{\linkS4class{PointProcessModel}},  \code{\link{update}},
-  \code{\link{optim}}, \code{\link{bSpline}}, \code{\link{termPlot}}.
+  \code{\link{optim}}, \code{\link{bSpline}}, \code{\link{termPlot}},
+  \code{\link{registerParBackend}}.
 }
 \examples{
 data(toyData)

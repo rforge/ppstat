@@ -12,7 +12,7 @@ geom_line(), trans = NULL, ...)
 }
 \arguments{
   \item{model}{an object of class \code{PointProcessModel}.}
-  \item{alpha}{a \code{numeric}. One minus the level of the point wise
+  \item{alpha}{a \code{numeric}. One minus the level of the pointwise
       confidence intervals. Default value \code{0.05}. A value of 1
       means no confidence intervals.}
   \item{layer}{a \code{proto} object specifying a ggplot2 layer. Default

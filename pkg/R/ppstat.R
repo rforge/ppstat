@@ -2,8 +2,16 @@
 ### ppstat - point process statistics
 ###======================================================================
 
-## bSpline replaces bs for convenience and provides easier computations
-## of B-spline bases that we are using. Does not issue a warning when
+### Setting up an environment for ppstat to hold global variables, in
+### particular registration of parallel backends. Default registration
+### is no parallel backend, that is, lapplyParallel is just lapply.
+
+## Environment for globals used by the ppstat package
+.ppstatGlobals <- new.env(parent = .GlobalEnv)
+lapplyParallel <- function(...) .ppstatGlobals$lapplyParallel(...)
+  
+## bSpline replaces bs for convenience and provides easier
+## computations of B-spline bases. Does not issue a warning when
 ## evaluated outside of knots. This will in fact be the rule rather
 ## than the exception for point process usages.
 
@@ -77,7 +85,11 @@ print.summary.ppm <-  function (x, digits = max(3, getOption("digits") - 3),
         "\n\n", "Number of function evaluations: ", x$iter[1],
         "\n","Number of gradient evaluations: ", x$iter[2],
         "\n", sep = "")
-    if(x$convergence!=0) cat("\nWarning: Algorithm did not converge.\n         'optim' convergence status:",x$convergence,"\n")  
+    if(is.na(x$convergence)) {
+      cat("\nNote: Model has not been fitted yet.")
+    } else if(x$convergence != 0) {
+      cat("\nWarning: Algorithm did not converge.\n         'optim' convergence status:", x$convergence,"\n")
+    }
     cat("\n")
     invisible(x)
 }

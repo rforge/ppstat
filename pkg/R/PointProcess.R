@@ -14,7 +14,6 @@ setMethod("computeMinusLogLikelihood", "PointProcess",
              if(isTRUE(response(model) == ""))
                stop("No response variable specified.")
             
-            
             if(model@family@link == "log"){
               mll <-  sum(exp(eta)*model@delta) -
                 sum(eta[getPointPointer(processData(model), response(model))]) 
@@ -27,7 +26,7 @@ setMethod("computeMinusLogLikelihood", "PointProcess",
           }
           )
 
-setMethod("family","PointProcess",
+setMethod("family", "PointProcess",
           function(object,...) {
             return(object@family)
           }
@@ -50,7 +49,8 @@ setReplaceMethod("formula", c(model = "PointProcess", value = "formula"),
                  function(model, value){
                    if(attr(terms(value), "response") != 0) {
                      ## TODO: Is the response always in position 2 in this list/call?
-                     model@response <- all.vars(attr(terms(value), "variables")[[2]]) 
+                     response <- attr(terms(value), "variables")[[2]]
+                     model@response <- all.vars(response)                  
                    } else {
                      model@response <- ""
                    }

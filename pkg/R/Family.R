@@ -1,6 +1,6 @@
 ### TODO: Implement a family "Event". This family should be responsible for
 ### models where we assume that events form different "individuals" all have 
-### the same "zero-base" and where we allow an at risk process.
+### the same "zero-base" and where we allow for an at risk process.
 
 ### TODO: Implement a family "Gibbs" where we allow for anticipation in the 
 ### stochastic integrals.
@@ -73,23 +73,23 @@ makeLink <- function (link,c=0)
         D2linkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)
         valideta <- function(eta) TRUE
     }, log2 = {
-        linkfun <- function(mu) log(mu)
-        linkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)
-        Dlinkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)
-        D2linkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)
+        linkfun <- function(mu) log(mu, 2)
+        linkinv <- function(eta) pmax(2^eta, .Machine$double.eps)
+        Dlinkinv <- function(eta) pmax(2^eta, .Machine$double.eps)
+        D2linkinv <- function(eta) pmax(2^eta, .Machine$double.eps)
         valideta <- function(eta) TRUE
     }, root = {
       if(c==0) {
         linkfun <- function(mu) mu
-        linkinv <- function(eta) pmax(eta*(eta > 0),.Machine$double.eps)
+        linkinv <- function(eta) pmax(eta*(eta > 0), .Machine$double.eps)
         Dlinkinv <- function(eta) rep(1,length(eta))*(eta > 0)
         D2linkinv <- function(eta) rep(0,length(eta))*(eta > 0) 
         valideta <- function(eta) TRUE
       } else {
         linkfun <- function(mu) mu^{1/(c+1)}
-        linkinv <- function(eta) pmax(eta^(c+1)*(eta > 0),.Machine$double.eps)
-        Dlinkinv <- function(eta) (c+1) * pmax(eta^c*(eta > 0),.Machine$double.eps)
-        D2linkinv <- function(eta) (c+1)*c*pmax(eta^{c-1}*(eta > 0),.Machine$double.eps)
+        linkinv <- function(eta) pmax(eta^(c+1)*(eta > 0), .Machine$double.eps^(c+1))
+        Dlinkinv <- function(eta) (c+1) * pmax(eta^c*(eta > 0), .Machine$double.eps^c)
+        D2linkinv <- function(eta) (c+1)*c*pmax(eta^{c-1}*(eta > 0), .Machine$double.eps^(c-1))
         valideta <- function(eta) TRUE
       }        
     }, logaffine = {

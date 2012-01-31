@@ -1,6 +1,7 @@
 \name{stepInformation}
 \alias{stepInformation}
 \alias{stepInformation,PointProcessModel-method}
+\alias{stepInformation,MultivariatePointProcess-method}
 \alias{getInformation}
 \alias{getInformation,PointProcessModel-method}
 
@@ -11,7 +12,9 @@
   Performs a stepwise, greedy model selection using an information criteria.
 }
 \usage{
-\S4method{stepInformation}{PointProcessModel}(model, direction = "both", trace = 1, steps = 1000, warmStart = TRUE, k = 2, \dots)
+\S4method{stepInformation}{PointProcessModel}(model, scope = ~ 0, direction = "both", trace = 1, steps = 1000, warmStart = TRUE, k = 2, \dots)
+
+\S4method{stepInformation}{MultivariatePointProcess}(model, scope = ~ 0, direction = "both", trace = 1, steps = 1000, warmStart = TRUE, k = 2, \dots)
 
 \S4method{getInformation}{PointProcessModel}(model, k = 2, \dots)
 
@@ -21,8 +24,12 @@
   \item{model}{ a \code{"PointProcessModel"} object. This model is used
     as the initial model in the stepwise search.  }
   
-%  \item{scope}{ a formula, or a list containing components \code{upper}
-%    and \code{lower}, both formulae. Usage currently not implemented.  }
+  \item{scope}{ a formula. Only the right hand side matters. It
+  specifies an upper bound of models to consider. The default, \code{~
+  0}, results in the upper bound being the formula of \code{model}. If
+  specified, the upper bound is the model whose formula has a right hand
+  side, which is the sum of terms from \code{scope} and the formula of
+  \code{model}.}
 
 %  \item{scale}{ a \code{numeric}. Usage currently not implemented.  }
 

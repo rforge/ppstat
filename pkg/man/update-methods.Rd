@@ -11,7 +11,7 @@
 \usage{
 
 \S4method{update}{PointProcessModel}(object, formula = .~., warmStart = TRUE,
-  fixedCoefficients = list(), ...)
+  fixedCoefficients = list(), fit = TRUE, ...)
 
 }
 \arguments{
@@ -35,6 +35,9 @@
     model parameters. Note that if \code{fixedCoefficients} is
     specified, it overides any fixed coefficients in \code{object} - no
     attempt is made to merge the two sets of fixed coefficients.}
+
+  \item{fit}{a \code{logical}. Should the model be refitted. Default
+  value is \code{TRUE}.}
 
   \item{...}{additional arguments to the call. Passed on to \code{ppmFit}.}
 }

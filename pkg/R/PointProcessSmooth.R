@@ -81,9 +81,8 @@ pointProcessSmooth <- function(
   ## TODO: Modify colnames for the model matrix. 
   nrCoef <- dim(getModelMatrix(model))[2]
   Omega <- matrix(0, ncol = nrCoef, nrow = nrCoef)
-
   for(i in seq_along(specialTerms)) {
-    penCoef <- which(attr(getModelMatrix(model), "assign") == specialTerms[i])
+    penCoef <- which(getAssign(model) == specialTerms[i])
     d <- length(penCoef)
     s1 <- s2 <- s3 <- s4 <- numeric(d)
     s <-  .Fortran("sgram", as.double(s1), as.double(s2), as.double(s3), as.double(s4), as.double(knots[[specialTerms[i]]]), as.integer(d))

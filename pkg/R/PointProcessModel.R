@@ -2,7 +2,7 @@ pointProcessModel <- function(
                               formula,
                               data,
                               family,
-                              support,
+                              support = 1,
                               N = 200,
                               Delta,
                               basisPoints,
@@ -30,28 +30,25 @@ pointProcessModel <- function(
 
   if(missing(basisPoints))
     {
-      if(!(missing(support)))
-        {
-          if(length(support) == 1)
-            support <- c(0,max(support[1],0))
+      if(length(support) == 1)
+        support <- c(0,max(support[1],0))
           
-          if(missing(Delta))
-            Delta <- (support[2] - support[1])/N
+      if(missing(Delta))
+        Delta <- (support[2] - support[1])/N
           
-          basisPoints <- sort(unique(c(0, seq(support[1], support[2], Delta))))
-        } else {
-          stop("Must specify either 'support' or 'basisPoints'.")
-        }
+      basisPoints <- sort(unique(c(0, seq(support[1], support[2], Delta))))
     } else {
-      basisPoints <- sort(unique(c(0,basisPoints)))
+      basisPoints <- sort(unique(c(0, basisPoints)))
       support = range(basisPoints)
       Delta = min(diff(basisPoints))
     }
       
   delta <- as.numeric(unlist(tapply(getPosition(data),
                                     getId(data),
-                                    function(x) c(diff(x),0)), use.names=FALSE))
-
+                                    function(x) c(0, diff(x))),
+                             use.names=FALSE)
+                      )
+                      
   model <- new("PointProcessModel",
                delta = delta,
                family = family,
@@ -65,106 +62,168 @@ pointProcessModel <- function(
                penalization = penalization,
                varMethod = varMethod)
 
-  formula(model) <- formula
+  ## Parsing the formula: Either the model is multivariate with the
+  ## formula a list of formulae, one for each model, or the response
+  ## is a vector -- assuming that the right hand side of each model is 
+  ## the same as a starting point. Alternatively, the formula is just a
+  ## single formula. 
+  
+  if(is.list(formula)) {
+    ## Extract all terms used in any of the formulae to create a
+    ## super formula.
+    superFormula <- reformulate(unlist(lapply(formula, function(f) attr(terms(f), "term.labels"))))
+    formula(model) <- superFormula
+    response <- NULL
+  } else {
+    response <- attr(terms(formula), "variables")[[2]]
+    if(length(response) > 2 && response[[1]] == as.symbol("c")) {
+      response <- response[seq.int(2, length(response))]
+      formula(model) <- update(formula, as.formula(paste(deparse(response[[1]]), "~ .")))
+      call <- as.list(model@call)
+      call$formula <- formula(model)
+      model@call <- as.call(call)
+    } else {
+      formula(model) <- formula
+      response <- NULL
+    }
+  }
   
   if(!anticipating(model)) {
     model@basisPoints <- model@basisPoints[model@basisPoints >= 0]
-    model@support[1] <- max(0,model@support[1])
+    model@support[1] <- max(0, model@support[1])
   }
-    
+  
   if(missing(basisEnv))  {
     setBasis(model) <- list()
+    model <- computeBasis(model)
   } else {
     setBasis(model) <- basisEnv$basis
   }
-  
+
   if(modelMatrix) {
     model <- computeModelMatrix(model)
   } else {
     setModelMatrix(model) <- Matrix()
   }
-
-  parDim <- dim(getModelMatrix(model))[2]
   
-  if(missing(coefficients)){
-    coefficients <- rep(.Machine$double.eps, parDim)
-    names(coefficients) <- dimnames(getModelMatrix(model))[[2]]
-  } else {
-    if(length(coefficients) != parDim && parDim != 0) {
-      coefficients <- rep(.Machine$double.eps, parDim)
-      names(coefficients) <- dimnames(getModelMatrix(model))[[2]]
-      warning(paste("Incorrect length of initial parameter vector. Initial parameters all set to", .Machine$double.eps))
-    }
-  }
-
-
+  if(missing(coefficients))
+    coefficients <- .Machine$double.eps
+  
   if(length(fixedCoefficients) != 0)
     coefficients[fixedCoefficients$which] <- fixedCoefficients$value
-
+  
   model@fixedCoefficients <- fixedCoefficients
   coefficients(model) <- coefficients
-            
-  if(fit)
-    model <- ppmFit(model,...)
   
+  if(!is.null(response)) {
+    models <- list()
+    models[[1]] <- model
+    for(i in seq.int(2, length(response))) {
+      models[[i]] <- update(model, as.formula(paste(deparse(response[[i]]), "~ .")), fit = FALSE, ...)
+    }
+    model <- new("MultivariatePointProcess")
+    setModels(model) <- models
+  }
+  
+  if(is.list(formula)) {
+    models <- list()
+    for(i in seq_along(formula)) {
+      models[[i]] <- update(model, formula[[i]], fit = FALSE, ...)
+    }
+    model <- new("MultivariatePointProcess")
+    setModels(model) <- models 
+  }
 
+  if(fit) {
+    model <- ppmFit(model, ...)
+  } else {
+    model <- computeVar(model, method = "none")
+##  TODO: correct to work with multivariate models
+##    model@optimResult <- list(value = computeMinusLogLikelihood(model),
+##                              counts = c(0, 0),
+##                              convergence = NA)
+  }
+  
   return(model)
 }
 
 ## TODO: Implement the use of interaction terms.
 
-setMethod("computeBasis", c(model = "PointProcessModel", form = "ANY"),
-          function(model, form, ...) {
+setMethod("computeBasis", "PointProcessModel",
+          function(model, ...) {
+       
+            ## Basis evaluations are computed if not
+            ## already computed, locked and available in
+            ## 'model@basisEnv$basis'.
             
-            if(class(form)[1] != "terms")
-              stop("The 'form' argument must be of S3-class 'terms'")
-            
-            ## Basis evaluations for 'form' are computed if
-            ## not already computed, locked and available in 'model@basisEnv$basis'.
-            
-            if(attr(form, "response") == 1) form <- delete.response(form)
-            term <- attr(form,"term.labels")
-            if(environmentIsLocked(model@basisEnv))
-              {
-                if(length(getBasis(model,term)) > 0)
-                  {
-                    return(TRUE)
-                  }  else {
-                    stop(paste("Term '",term,"' does not have precomputed basis values even though the basis environment is locked.",sep=""))
+            if(!bindingIsLocked("basis", model@basisEnv)) {
+              processData <- processData(model)
+              DcontinuousVar <- paste(colnames(getValue(processData)), ".d", sep="")
+              DpositionVar <- paste(processData@positionVar, ".d", sep="")
+              markLevels <- levels(getMarkType(processData, drop = FALSE))
+              
+              ## The formula object is extracted and decomposed into terms.
+              ## Each term label (in 'termLabels') is processed below,
+              ## and the corresponding basis functions are computed.
+              
+              mt <- delete.response(terms(formula(model)))
+              termLabels <- attr(mt, "term.labels")
+              nrTerms <- length(termLabels)
+              filterTerms <- numeric()
+              for(i in 1:nrTerms) {
+                term <- termLabels[i]
+                variable <- all.vars(mt[i])
+                
+                if(all(variable %in% c(markLevels, DcontinuousVar, DpositionVar))) {                  
+                  if(length(variable) > 1){
+                    stop(paste("Basis computations with two or more variables in '", term,
+                               "' is currently not supported.", sep=""))
+                  } else {
+                    filterTerms <- c(filterTerms, i)
+                    form <- update(mt[i], ~.-1)
+                    x <- as.data.frame(model@basisPoints)
+                    colnames(x) <- variable
+                    model@basisEnv$basis[[term]] <- model.matrix(form, x)
                   }
+                }
               }
-
-            variables <- all.vars(form[[2]])
-            form <- update(form,~.-1)
-            
-            if(length(variables) > 1){
-              stop(paste("Basis computations with two or more variables in '",term,
-                         "' is currently not supported.",sep=""))
-            } else {
-              x <- as.data.frame(model@basisPoints)
-              colnames(x) <- variables
-              model@basisEnv$basis[[term]] <- model.matrix(form,x)
-              return(TRUE)
+              setFilterTerms(model) <- filterTerms
+              lockBinding("basis", model@basisEnv)
             }
-            
-            return(FALSE)
+            return(model)
           }
           )
 
-setMethod("coefficients","PointProcessModel",
-          function(object,...){
+setMethod("coefficients", "PointProcessModel",
+          function(object, ...){
             return(object@coefficients)
           }
           )
 
-setReplaceMethod("coefficients",c(model="PointProcessModel",value="numeric"),
-                 function(model,value){
-                   model@coefficients <- value
+setReplaceMethod("coefficients", c(model = "PointProcessModel", value = "numeric"),
+                 function(model, value){
+                   nc <- length(model@coefficients)
+                   d <- dim(getModelMatrix(model))[2]
+                   if (d == nc) {
+                     model@coefficients[] <- value
+                   } else {
+                     nv <- length(value)
+                     if (nv == 1 && d > 1) {
+                       value <- rep(value, d)
+                     } else if(nv != d) {
+                       value <- rep(.Machine$double.eps, d)
+                       warning(paste("Incorrect length of parameter vector. Parameters all set to", .Machine$double.eps))
+                     }
+                     if(d > 0) 
+                       names(value) <- dimnames(getModelMatrix(model))[[2]]
+                     model@coefficients <- value
+                   }           
+          
                    return(model)
                  }
                  )
 
-setMethod("computeDMinusLogLikelihood","PointProcessModel",
+setMethod("computeDMinusLogLikelihood", "PointProcessModel",
           function(model, coefficients = NULL, ...){
             if(isTRUE(response(model) == ""))
               stop("No response variable specified.")
@@ -172,7 +231,7 @@ setMethod("computeDMinusLogLikelihood","PointProcessModel",
             
             if(model@family@link == "log") {
 
-              dmll <- as.vector(t(exp(eta)*model@delta)%*%getModelMatrix(model)) -
+              dmll <- as.vector(t(exp(eta)*model@delta) %*% getModelMatrix(model)) -
                 colSums(getModelMatrix(model)[getPointPointer(processData(model), response(model)), , drop = FALSE])
 
             } else {
@@ -225,32 +284,45 @@ setMethod("computeDDMinusLogLikelihood", "PointProcessModel",
 
 
 setMethod("computeWeights", "PointProcessModel",
-          function(model, coefficients = NULL, ...) {
+          function(model, coefficients = NULL, method = c("Poisson", "empirical"), ...) {
             if(isTRUE(response(model) == ""))
               stop("No response variable specified.")
             
             eta <- computeLinearPredictor(model, coefficients, ...)
           
-
             if(model@family@link == "log"){
 
               w <-  exp(eta)*model@delta
 
-             } else if(model@family@link == "identity"){
+             } else if(method[1] == "empirical") {
+               if(model@family@link == "identity"){
 
-               points <- getPointPointer(processData(model), response(model))
-               etaP <- eta[points]
-               w <- rep(0, length(eta))
-               w[points] <- 1/model@family@phi(etaP)^2
+                 points <- getPointPointer(processData(model), response(model))
+                 etaP <- eta[points]
+                 w <- rep(0, length(eta))
+                 w[points] <- 1/model@family@phi(etaP)^2
+                 
+               } else {
+                 
+                 points <- getPointPointer(processData(model), response(model))
+                 etaP <- eta[points]
+                 w <- model@family@D2phi(eta)*model@delta
+                 w[points] <- w[points] - (model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2
+                 
+               }
+                              
+             } else if(method[1] == "Poisson") {
 
+               w <- (model@family@Dphi(eta)^2*model@delta)/model@family@phi(eta)
+               
              } else {
-
-               points <- getPointPointer(processData(model), response(model))
-               etaP <- eta[points]
-               w <- model@family@D2phi(eta)*model@delta
-               w[points] <- w[points] - (model@family@D2phi(etaP)*model@family@phi(etaP) - model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2
-             
+               stop(paste("Method", method[1], "is not a valid weight method."))
              }
+
+            ## Weights are truncated to be non-negative, and small
+            ## weights are put equal to 0.
+            
+            w[w < .Machine$double.eps] <- 0
             
             return(w)
           }
@@ -263,6 +335,8 @@ setMethod("computeWorkingResponse", "PointProcessModel",
             eta <- computeLinearPredictor(model, coefficients, ...)
             points <- getPointPointer(processData(model), response(model))
             w <- computeWeights(model)
+            ## Small weights should not play a role. For numeric
+            ## stability, they are put equal to 1 here.
             w[w < .Machine$double.eps] <- 1
             
             if(model@family@link == "log") {
@@ -297,8 +371,16 @@ setMethod("computeLinearPredictor","PointProcessModel",
           }
           )
 
-setMethod("computeModelMatrix","PointProcessModel",
+setMethod("computeModelMatrix", "PointProcessModel",
           function(model, evaluationPositions = NULL, ...){
+
+            ## Making sure that the basis evaluations are computed.
+            ## The call to computeBasis is invoked for its side effect
+            ## of computing the basis evaluations if that is not already
+            ## done (which is checked by checking if the 'basis' symbol
+            ## is locked in the environment 'basisEnv').
+
+            model <- computeBasis(model)
 
             ## The 'model' of class PointProcessModel contains the data
             ## as an object of class MarkedPointProcess and the formula for the
@@ -322,18 +404,18 @@ setMethod("computeModelMatrix","PointProcessModel",
               zero <- 0
             }
               
-            
             ## The observed points ('positions') for the marked point process,
             ## the corresponding 'id' labels and 'marks' are extracted.
             
             processData <- processData(model)
             positions <- getPointPosition(processData)
-            DcontinuousVar <- paste(colnames(getValue(processData)),".d",sep="")
-
+            DcontinuousVar <- paste(colnames(getValue(processData)), ".d", sep="")
+            DpositionVar <- paste(processData@positionVar, "d.", sep = "")
+            
             id <- factor(getPointId(processData))
             idLevels <- levels(id)
             
-            marks <- getMarkType(processData)
+            marks <- getMarkType(processData, drop = FALSE)
             markLevels <- levels(marks)
             
             ## The formula object is extracted and decomposed into terms.
@@ -341,198 +423,222 @@ setMethod("computeModelMatrix","PointProcessModel",
             ## and the corresponding columns in the model matrix are computed.
             
             mt <- delete.response(terms(formula(model)))
-            termLabels <- attr(mt,"term.labels")
-            nrTerms <- length(termLabels)
-            notFilterTerms <- numeric()
+            termLabels <- attr(mt, "term.labels")
+            filterTerms <- getFilterTerms(model)
             
             ## The points where the basis functions are evaluated are extracted
             ## and the list of model matrices ('design') is set up, which holds model
             ## matrices for the different terms. 'assign' will be an attribute to  
             ## the model matrix of length equal to the number of columns, and for
             ## each column pointing to the term number. 
+                        
+            ## Model matrix computations for the terms involving filters:
+
+            design <- lapplyParallel(filterTerms,
+                                     function(i, ...) {
+                                       term <- termLabels[i]
+                                       variable <- all.vars(mt[i])
+                                       
+                                       ## The model matrix computed separately for terms
+                                       ## involving marks and terms being linear filters of
+                                       ## continuous processes and is done by a loop over 
+                                       ## each value of 'id' whose result is stored in
+                                       ## 'designList'.
+                                       
+                                       ## TODO: Can the C level computation return a sparse matrix
+                                       ## directly?
+                                       
+                                       if(all(variable %in% markLevels))
+                                         {
+                                           
+                                           designList <- list()
+
+                                           ## Central loop over 'idLevels' and computations of
+                                           ## the model matrix in the C function
+                                           ## 'computeFilterMatrix'. Result is converted to a
+                                           ## sparse matrix, bound together in one matrix below
+                                           ## and stored in the variable 'localDesign'.
+                                           
+                                           for(i in idLevels) {
+                                             posi <- positions[marks == variable & id == i]
+                                             ## posi is sorted for a valid data object. This is
+                                             ## assumed in the following computation.
+                                             designList[[i]] <- Matrix(.Call(computeFilterMatrix,
+                                                                             evalPositions[[i]],
+                                                                             getBasis(model, term),
+                                                                             model@Delta,
+                                                                             posi,
+                                                                             zero,
+                                                                             'p'), sparse=TRUE)
+                                           }
+                                           localDesign <- do.call("rBind", designList)
+                                           colnames(localDesign) <- colnames(getBasis(model, term))
+                                         } else if(all(variable %in% c(DcontinuousVar, DpositionVar))) {
+
+                                           designList <- list()    
+
+                                           ## Central loop over 'idLevels' and computations of
+                                           ## the model matrix in the C function
+                                           ## 'computeFilterMatrix'. Result is converted to a
+                                           ## sparse matrix, bound together in one matrix below
+                                           ## and stored in the variable 'localDesign'.
+                                           
+                                           if(variable == DpositionVar) {
+                                             values <- getPosition(processData)
+                                           } else {
+                                             values <- getNumerics(processData)[ , variable == DcontinuousVar]
+                                           }
+                                           
+                                           for(i in idLevels) {
+                                             valuesi <- values[getId(processData) == i]
+                                             
+                                             designList[[i]] <- Matrix(.Call(computeFilterMatrix,
+                                                                             evalPositions[[i]],
+                                                                             getBasis(model,term),
+                                                                             model@Delta,
+                                                                             valuesi,
+                                                                             zero,
+                                                                             'c'), sparse=TRUE)
+                                           }
+                                           localDesign <- do.call("rBind", designList)
+                                           colnames(localDesign) <- colnames(getBasis(model,term))
+                                         } 
+                                       localDesign ## The return value
+                                     },
+                                     ## With multicore backend the
+                                     ## jobs are spawned sequentially
+                                     ## and not prescheduled. This is
+                                     ## expected to be a sensible
+                                     ## strategy here because
+                                     ## different types of filter
+                                     ## terms may involve highly
+                                     ## different computation times,
+                                     ## and the total number of terms
+                                     ## is generally relatively small.
+                                     mc.preschedule = FALSE 
+                                     ) ## End lapplyParalle
+
+
             
-            design <- list()
-            assign <- numeric()
+            assign <- unlist(lapply(filterTerms,
+                                    function(i) {
+                                      rep(i, dim(getBasis(model, termLabels[i]))[2])
+                                    }
+                                    )
+                             )
+            names(design) <- termLabels[filterTerms]
             
-            ## Model matrix computations for the terms involving the marks.
-            ## Terms involving 'id' and the continuous process components below.
-            ## Those terms are collected in 'notMarkTerms' in the loop below.
-            for(i in 1:nrTerms) {
-              term <- termLabels[i]
-
-              variable <- all.vars(mt[i])
-              
-              ## The model matrix computed separately for terms
-              ## involving marks, terms being linear filters of
-              ## continuous processes and terms not being linear
-              ## filters. The two former is done by a loop over for
-              ## each value of 'id' and the result is stored in
-              ## 'designList'.
-              
-              ## TODO: Can the C level computation return a sparse matrix
-              ## directly?
-              
-              if(all(variable %in% markLevels))
-                {
-                  ## The call to computeBasis is invoked for its side effect
-                  ## of computing the basis evaluations if that is not already
-                  ## done (which is checked by checking if the environment 'basisEnv' 
-                  ## is locked).
-                  computeBasis(model, mt[i])
-                  
-                  assign <- c(assign, rep(i, dim(getBasis(model,term))[2]))
-                  designList <- list()
-
-                  ## Central loop over 'idLevels' and computations of
-                  ## the model matrix in the C function
-                  ## 'computeFilterMatrix'. Result is converted to a
-                  ## sparse matrix, bound together in one matrix below
-                  ## and stored in the list 'design'.
-                  
-                  for(i in idLevels) {
-                    posi <- positions[marks == variable & id == i]
-                    ## posi is sorted for a valid data object. This is
-                    ## assumed in the following computation.
-                    designList[[i]] <- Matrix(.Call(computeFilterMatrix,
-                                                    evalPositions[[i]],
-                                                    getBasis(model, term),
-                                                    model@Delta,
-                                                    posi,
-                                                    zero,
-                                                    'p'), sparse=TRUE)
-                  }
-                  design[[term]] <- do.call("rBind",designList)
-                  colnames(design[[term]]) <- colnames(getBasis(model,term))
-                } else if(all(variable %in% c(DcontinuousVar,"d.position","d.time"))) {
-                  computeBasis(model, mt[i])
-                  assign <- c(assign, rep(i, dim(getBasis(model,term))[2]))
-                  designList <- list()    
-
-                  ## Central loop over 'idLevels' and computations of
-                  ## the model matrix in the C function
-                  ## 'computeFilterMatrix'. Result is
-                  ## converted to a sparse matrix, bound together in one
-                  ## matrix below and stored in the list 'design'.
-                  if(variable %in% c("d.position","d.time")) {
-                    values <- getPosition(processData)
-                  } else {
-                    values <- getValue(processData)[ , variable == DcontinuousVar]
-                  }
-                  
-                  for(i in idLevels) {
-                    valuesi <- values[getId(processData) == i]
-                    
-                    designList[[i]] <- Matrix(.Call(computeFilterMatrix,
-                                                    evalPositions[[i]],
-                                                    getBasis(model,term),
-                                                    model@Delta,
-                                                    valuesi,
-                                                    zero,
-                                                    'c'), sparse=TRUE)
-                  }
-                  design[[term]] <- do.call("rBind", designList)
-                  colnames(design[[term]]) <- colnames(getBasis(model,term))
-                } else {
-                  ## The term does not involve filters
-                  notFilterTerms <- c(notFilterTerms,i) 
-                }
-            }            
+            ## Terms that do not involve filters
+            if(length(filterTerms) > 0) {
+              notFilterTerms <- seq_along(termLabels)[-filterTerms]
+            } else {
+              notFilterTerms <- seq_along(termLabels)
+            }
 
             ## Model matrix computations for terms involving 'id',
             ## 'position/time', unit variables and non-filtered
             ## continuous time process components.
               
-            if(length(notFilterTerms) > 0 || attr(mt, "intercept") == 1){
+            if(length(notFilterTerms) > 0){
               form <-  mt[notFilterTerms]
               attr(form, "intercept") <-  attr(mt, "intercept")
               variables <- all.vars(form)
+              otherVariables <- c(colNames(processData, type = "numeric"),
+                                  colNames(processData, type = "factor"),
+                                  colNames(processData, type = "unit"))
               
-              if(all(variables %in% c(processData@idVar, processData@positionVar, colnames(getValue(processData)), colnames(getUnitData(processData))))) {
+              if(all(variables %in% c(processData@idVar,
+                                      processData@positionVar,
+                                      otherVariables))) {
+                
                 ## TODO: Investigate if this build of the model matrix can exploit
                 ## sparse matrices more directly, if it is necessary to create the
                 ## values object, or if we could refer to a suitable environment?
                 
-                values <- list()
+                values <- vector("list", 2)
 
-                if(processData@idVar %in% variables || attr(mt, "intercept") == 1) {
-                  values[[1]] <- data.frame(getId(processData))
-                  names(values[[1]]) <- processData@idVar
+                if(processData@idVar %in% variables) {
+                  values[[1]] <- getId(processData)
+                  names(values)[1] <- processData@idVar
                 }
                 
                 if(processData@positionVar %in% variables) {
-                  values[[2]] <- data.frame(getPosition(processData))
-                  names(values[[2]]) <-  processData@positionVar
+                  values[[2]] <- getPosition(processData)
+                  names(values)[2] <-  processData@positionVar
                 }
+               
+                otherVariables <-  otherVariables[otherVariables %in% variables]
+                if(length(otherVariables) > 0) {
+                  values <- c(values, getColumns(processData, otherVariables, drop = FALSE))
+                  names(values)[-c(1, 2)] <- otherVariables
+                }
+                
+                values <- values[!sapply(values, is.null)]
 
-                unitVariables <- colnames(getUnitData(processData)) %in% variables
-                if(any(unitVariables)) {
-                  values[[3]] <- getUnitData(processData)[as.numeric(getId(processData)),
-                                                          unitVariables,
-                                                          drop = FALSE]
-                }
-                
-                otherVariables <-  colnames(getValue(processData)) %in% variables 
-                if(any(otherVariables)) {
-                  values[[4]] <- as.data.frame(as.matrix(getValue(processData)[ , otherVariables, drop=FALSE]))
-                  rownames(values[[4]]) <- NULL
-                }
-                
-                values <- do.call("cbind", values[!sapply(values, is.null)])
                 ## This sparse.model.matrix solution avoids the dense
                 ## model matrix, but does not produce the assign
                 ## attribute ...
-                ## X0 <- sparse.model.matrix(form, values)
+                ## modelMatrix0 <- sparse.model.matrix(form, values)
 
                 tmp <- model.matrix(form, values)
-                assign <- c(c(0,notFilterTerms)[attr(tmp,"assign")+1],assign)
-                X0 <- Matrix(tmp, dimnames = dimnames(tmp), sparse=TRUE)
-                assign <- c(c(0, notFilterTerms)[attr(X0, "assign") + 1], assign)
+                assign <- c(c(0, notFilterTerms)[attr(tmp, "assign") + 1], assign)
+                modelMatrix0 <- Matrix(tmp, dimnames = dimnames(tmp), sparse=TRUE)
+                assign <- c(c(0, notFilterTerms)[attr(modelMatrix0, "assign") + 1], assign)
               } else {
                 stop(paste("Use of non existing variable(s) in:", form))
               }
-            }
+            } else if (attr(mt, "intercept") == 1) {
+              modelMatrix0 <- Matrix(rep(1, dim(processData)[1]), sparse=TRUE)
+              colnames(modelMatrix0) <- "(Intercept)"
+              assign <- c(0, assign)
+            } 
             
-            
-            if(exists("X0")) {
-              modelMatrix <- cBind(X0, do.call("cBind",design))
+            if(exists("modelMatrix0")) {
+              modelMatrix <- cBind(modelMatrix0, do.call("cBind", design))
             } else {
-              modelMatrix <- do.call("cBind",design)
+              modelMatrix <- do.call("cBind", design)
             }
-            attr(modelMatrix, "assign") <- assign
             form <- formula(model)
             attr(form, "filterTerms") <- which(!(seq(along=termLabels) %in% notFilterTerms))
-            formula(model) <- form
-            attr(modelMatrix, "formula") <- form
-            setModelMatrix(model) <- modelMatrix
-            lockEnvironment(model@modelMatrixEnv, binding=TRUE)
-            lockEnvironment(model@basisEnv, binding=TRUE)            
+            model <- updateModelMatrix(model, modelMatrix, assign, form)
+            lockEnvironment(model@modelMatrixEnv, binding = TRUE)
             return(model)
           }
           )
 
 setMethod("computeVar", "PointProcessModel",
-          function(model,...){
-            if(attr(vcov(model),"method") == "none"){
-              model@var <- matrix(0,length(coefficients(model)),length(coefficients(model)))
-            } 
-            if(attr(vcov(model),"method") == "Fisher") {
+          function(model, method = attr(vcov(model), "method"), ...){
+            if(method == "subset") {
+              varMatrix <- vcov(model)
+              i <- which(rownames(varMatrix) %in% names(coefficients(model)))
+              model@var <- varMatrix[i, i, drop = FALSE]
+            } else if(method == "none"){
+              model@var <- matrix(0, length(coefficients(model)),
+                                  length(coefficients(model)))
+            } else if(method == "Fisher") {
               vcovInv <- computeDDMinusLogLikelihood(model)
-              if(model@penalization) vcovInv <- vcovInv + 2*model@Omega ## TODO: This requires some more thought ....
-              vcov <- matrix(0,nrow=dim(vcovInv)[1],ncol=dim(vcovInv)[2])
+              if(model@penalization)
+                vcovInv <- vcovInv + 2*model@Omega
+              ## TODO: This requires some more thought ....
+              vcov <- matrix(0, nrow = dim(vcovInv)[1],
+                             ncol=dim(vcovInv)[2])
               
               if(length(model@fixedCoefficients) == 0) {
-                tmp <- try(solve(vcovInv),silent=TRUE)
-                if(class(tmp)=="try-error") {
-                  cat("Fisher information singular:\n",tmp[1]," Check convergence status or parameterization\n.")
+                tmp <- try(solve(vcovInv), silent = TRUE)
+                if(class(tmp) == "try-error") {
+                  message("Fisher information singular:\n", tmp[1], " Check convergence status or parameterization.")
                 } else {
                   vcov <- tmp
                 }
               } else {
-                tmp <- try(solve(vcovInv[-model@fixedCoefficients$which,-model@fixedCoefficients$which]),silent=TRUE)
-                if(class(tmp)=="try-error") {
-                  cat("Fisher information singular:\n",tmp[1],"\nCheck convergence status and parameterization.")
+                tmp <- try(solve(vcovInv[-model@fixedCoefficients$which,
+                                         -model@fixedCoefficients$which]),
+                           silent=TRUE)
+                if(class(tmp) == "try-error") {
+                  message("Fisher information singular:\n", tmp[1], " Check convergence status and parameterization.")
                 } else {
-                  vcov[-model@fixedCoefficients$which,-model@fixedCoefficients$which] <- tmp
+                  vcov[-model@fixedCoefficients$which,
+                       -model@fixedCoefficients$which] <- tmp
                 }
               }
               rownames(vcov) <- names(model@coefficients)
@@ -544,30 +650,37 @@ setMethod("computeVar", "PointProcessModel",
           }
           )
 
-setMethod("getLinearFilter", c(model = "PointProcessModel"),
+setMethod("getFilterTerms", "PointProcessModel",
+          function(model, ...) {
+            return(model@filterTerms)
+          }
+          )
+
+setMethod("getLinearFilter", "PointProcessModel",
           function(model, se = FALSE, nr, ...){
             mt <- delete.response(terms(formula(model)))
-            ## TODO: filterTerms attribute first computed in compute model
-            ## matrix. Should be computed globally prior to this!
-            filterTerms <- attr(formula(model), "filterTerms")
+            model <- computeBasis(model)
+            filterTerms <- getFilterTerms(model)
             
             linearFilter <- list()
             design <- list()
             if(isTRUE(se))
               linearFilterSE <- list()
             
-            if(missing(nr))
+            if(missing(nr)) {
               nr <- length(model@basisPoints)
+            } else {
+              nr <- min(nr, length(model@basisPoints))
+            }
 
             for(j in filterTerms){
-              computeBasis(model, mt[j])
               term <- attr(mt[j], "term.labels")
               NR <- dim(getBasis(model, term))[1]
-              i <- seq_len(min(nr,NR))*floor(max(NR/nr,1))
+              i <- round(seq_len(min(nr, NR))*NR/nr)
               varName <- paste(all.vars(parse(text = term)), collapse = ".")
               design[[varName]] <- cbind(design[[varName]], getBasis(model, term)[i, ,drop=FALSE])}
 
-            for(j in seq(along=design)){
+            for(j in seq_along(design)){
               linearFilter[[j]] <- design[[j]] %*% coefficients(model)[dimnames(design[[j]])[[2]]]
               if(isTRUE(se))
                 linearFilterSE[[j]] <- sqrt(rowSums(design[[j]] %*% vcov(model)[dimnames(design[[j]])[[2]], dimnames(design[[j]])[[2]]] * design[[j]]))
@@ -575,7 +688,6 @@ setMethod("getLinearFilter", c(model = "PointProcessModel"),
 
             names(linearFilter) <- names(design)
           
-            lockEnvironment(model@basisEnv, bindings=TRUE)
             if(isTRUE(se)) {
               return(list(linearFilter = cbind(data.frame(x=model@basisPoints[i]), as.data.frame(linearFilter)), se = linearFilterSE))
             } else {
@@ -585,24 +697,37 @@ setMethod("getLinearFilter", c(model = "PointProcessModel"),
           }
           )
 
+setMethod("getAssign", "PointProcessModel",
+          function(model, col, ...){
+            if(missing(col))
+              col <- model@modelMatrixCol
+            if(length(col) == 0) {
+              assign <- model@modelMatrixEnv$assign
+            } else {
+              assign <- model@modelMatrixEnv$assign[col]
+            }
+            return(assign)
+          }
+          )
+
 setMethod("getBasis", c(model = "PointProcessModel", term = "ANY"),
           function(model, term,...){
-            if(missing(term)) return(model@basisEnv$basis)
+            if(missing(term))
+              return(model@basisEnv$basis)
             return(model@basisEnv$basis[[term]])
           }
           )
 
 setMethod("getModelMatrix", c(model = "PointProcessModel", col = "ANY"),
           function(model, col,...){
-            if(missing(col)) col <- model@modelMatrixCol
+            if(missing(col))
+              col <- model@modelMatrixCol
             if(length(col) == 0) {
-              return(model@modelMatrixEnv$modelMatrix)
+              modelMatrix <- model@modelMatrixEnv$modelMatrix
             } else {
-              modelMatrix <- model@modelMatrixEnv$modelMatrix[ , col, drop=FALSE]
-              attr(modelMatrix, "assign") <- attr(model@modelMatrixEnv$modelMatrix, "assign")[col]
-              attr(modelMatrix, "formula") <- attr(model@modelMatrixEnv$modelMatrix, "formula")
-              return(modelMatrix)
+              modelMatrix <- model@modelMatrixEnv$modelMatrix[, col, drop = FALSE]
             }
+            return(modelMatrix)
           }
           )
 
@@ -615,9 +740,10 @@ setMethod("getModelMatrixEnv", "PointProcessModel",
 setReplaceMethod("setBasis", c(model = "PointProcessModel", term = "character", value = "numeric"),
                  function(model, term, value){
                    if(environmentIsLocked(model@basisEnv))
-                     model@basisEnv <- new.env(parent=.GlobalEnv)
+                     model@basisEnv <- new.env(parent = emptyenv())
                    
                    model@basisEnv$basis[[term]] <- value
+                   lockEnvironment(model@basisEnv)
                    
                    return(model)
                  }
@@ -626,53 +752,40 @@ setReplaceMethod("setBasis", c(model = "PointProcessModel", term = "character", 
 setReplaceMethod("setBasis", c(model = "PointProcessModel", term = "ANY", value = "list"),
                  function(model, term, value){
                    if(environmentIsLocked(model@basisEnv))
-                     model@basisEnv <- new.env(parent=.GlobalEnv)
+                     model@basisEnv <- new.env(parent = emptyenv())
                    
                    model@basisEnv$basis <- value
-                   
+                   lockEnvironment(model@basisEnv)
+
                    return(model)
                  }
                  )
 
-setReplaceMethod("setModelMatrix", c(model = "PointProcessModel", value = "Matrix"),
-          function(model, value){
-            model@modelMatrixEnv <- new.env(parent=.GlobalEnv)
-            model@modelMatrixEnv$modelMatrix <- value
-            model@modelMatrixCol <- numeric()
-            return(model)
-          }
-          )
-
 setReplaceMethod("setModelMatrixEnv", c(model = "PointProcessModel", value = "list"),
-                 function(model,value){
-                   if(all(c("modelMatrixEnv","modelMatrixCol") %in% names(value))){
+                 function(model, value){
+                   if(all(c("modelMatrixEnv", "modelMatrixCol") %in% names(value))){
                      model@modelMatrixEnv <- value$modelMatrixEnv
                      model@modelMatrixCol <- value$modelMatrixCol
                    } else {
-                     stop("Right hand side of the assignment needs to be a list with two entries named 'modelMatrixEnv' and 'modelMatrixCol'")
+                     stop("Right hand side of the assignment needs to be a list with two entries named 'modelMatrixEnv' and 'modelMatrixCol'.")
                    }
                    return(model)
                  }
                  )
 
-setMethod("predict","PointProcessModel",
+setMethod("predict", "PointProcessModel",
           function(object, ...) {
-            eta <- computeLinearPredictor(object,...)
+            eta <- computeLinearPredictor(object, ...)
             return(object@family@phi(eta))
           }
           )
 
-setMethod("termPlot","PointProcessModel",
-          function(model, alpha = 0.05, layer = geom_line(), trans = NULL, ...) {
+setMethod("getTermPlotData", "PointProcessModel",
+          function(model, alpha = 0.05, trans = NULL, ...) {
             if(alpha <= 0 || alpha > 1)
               stop("The 'alpha' level must be in (0,1]")
-
-            if(length(attr(formula(model), "filterTerms")) == 0){
-              print("No filter function terms to plot")
-              return(invisible())
-            }
-            
-            if(alpha == 1) {
+             
+            if(isTRUE(all.equal(alpha, 1))) {
               se <- FALSE
             } else {
               se <- TRUE
@@ -689,24 +802,51 @@ setMethod("termPlot","PointProcessModel",
                 plotData[, c("value", "cf.lower", "cf.upper")] <- do.call(trans,list(plotData[, c("value", "cf.lower", "cf.upper")]))
             } else {
               plotData <- melt(linearFilter, id.vars = "x")
-               if(!is.null(trans))
-                 plotData$value <- do.call(trans, plotData$value)
+              if(!is.null(trans))
+                plotData$value <- do.call(trans, plotData$value)
             }
-           
 
+            return(plotData)
+          }
+          )
+          
+
+setMethod("termPlot", "PointProcessModel",
+          function(model, alpha = 0.05, layer = geom_line(), trans = NULL, ...) {
+            if(length(getFilterTerms(model)) == 0){
+              print("No filter function terms to plot")
+              return(invisible())
+            }
+
+            plotData <- getTermPlotData(model = model, alpha = alpha, trans = trans, ...)
+                      
             linearFilterPlot <- ggplot(data = plotData, aes(x = x, y = value)) +
               facet_grid(variable ~ ., scales = "free_y") +
                 scale_x_continuous("position") +
                   scale_y_continuous("") + layer
-
-            if(se)
-              linearFilterPlot <- linearFilterPlot + geom_ribbon(aes(min = cf.lower, max = cf.upper), fill = alpha("blue", 0.2))
+            
+            if(!isTRUE(all.equal(alpha, 1)))
+              linearFilterPlot <- linearFilterPlot + geom_ribbon(aes(min = cf.lower, max = cf.upper), fill = "blue", alpha = 0.2)
 
             return(linearFilterPlot)
           }
           )
 
 setMethod("ppmFit", "PointProcessModel",
+          function(model, control = list(), method = "optim", ...) {
+            model <- switch(method,
+                            optim = optimFit(model = model, control = control, ...),
+                            IWLS = iwlsFit(model = model, control = control, ...),
+                            lm = lmFit(model = model, control = control, ...),
+                            glm = glmFit(model = model, control = control, ...),
+                            glmnet = glmnetFit(model = model, control = control, ...)
+                            )
+            ## Computation of the estimated covariance matrix
+            computeVar(model)
+          }
+          )
+              
+setMethod("optimFit", "PointProcessModel",
           function(model, control = list() , ...) {
             nrPar <- parDim <- dim(getModelMatrix(model))[2]
             fixedPar <- model@fixedCoefficients
@@ -718,12 +858,11 @@ setMethod("ppmFit", "PointProcessModel",
             
             if(length(model@modelMatrixCol) > 0) {
               modelMatrixEnv <- getModelMatrixEnv(model)
-              setModelMatrix(model) <- getModelMatrix(model)
+              model <- updateModelMatrix(model)
             }
             
             if(!("maxit" %in% names(control)))
               control <- c(list(maxit = 1000), control)
-            
             
             if(length(fixedPar) != 0) {
               nrPar <- parDim -length(fixedPar$which)
@@ -740,11 +879,10 @@ setMethod("ppmFit", "PointProcessModel",
                 initPar <- coefficients(model)
               }    
             } else {
-              initPar <- rep(.Machine$double.eps,nrPar)             
-            warning("Length of initial parameter vector worng. Initial parameters all set to 0.")
+              initPar <- rep(.Machine$double.eps, nrPar)             
+            warning("Length of initial parameter vector wrong. Initial parameters all set to 0.")
           }
             
-
             ## Setting up the objective function to minimize
 
             if(!model@penalization){
@@ -787,7 +925,7 @@ setMethod("ppmFit", "PointProcessModel",
 
             if(family(model)@link == "identity") {
               method <- "L-BFGS-B"
-              if(attr(terms(formula(model)),"intercept")==1) {
+              if(attr(terms(formula(model)), "intercept")==1) {
                 lower = c(sqrt(.Machine$double.eps),rep(0,dim(getModelMatrix(model))[2]-1))
               } else {
                 lower = sqrt(.Machine$double.eps)
@@ -816,42 +954,145 @@ setMethod("ppmFit", "PointProcessModel",
               setModelMatrixEnv(model) <- modelMatrixEnv
             }
             
-            ## Computation of the estimated covariance matrix
-            
-            model <- computeVar(model)
             return(model)
           }
           )            
 
-setMethod("IWLS", "PointProcessModel",
+setMethod("grpLassoFit", "PointProcessModel",
           function(model, control, ...) {
+            
+            w <- computeWeights(model)
+            z <- computeWorkingResponse(model)
+            
+          }
+          )
+
+setMethod("iwlsFit", "PointProcessModel",
+          function(model, control = list(), ...) {
 
             value <- computeMinusLogLikelihood(model)
             reltol <- sqrt(.Machine$double.eps)
-            maxit <- 100
+            maxit <- 1000
             trace <- 1
             
             i <- 1
             while(i < maxit) {
               w <- computeWeights(model)
               z <- computeWorkingResponse(model)
-              ## TODO: check when lm.fit.sparse becomes exported.
-              ## This is relying on an algorithm in the MatrixModels package still
-              ## under development. 
+              ## TODO: check if lm.fit.sparse is exported. The
+              ## following computation relies on an algorithm in the
+              ## MatrixModels package still under development and
+              ## currently not exported.
               coefficients(model) <- MatrixModels:::lm.fit.sparse(getModelMatrix(model), z, w)
               val <- computeMinusLogLikelihood(model)
               i <- i + 1
               if(trace > 0)
                 cat("Value: ", val, "\n")
-              if(value < reltol * (abs(value) + reltol) * value + val)
+              if(val < value && value < reltol * (abs(value) + reltol) + val)
                 break
               value <- val
             }
-            
+
+            if(i < maxit) {
+              convergence <- 0
+            } else {
+              convergence <- 1
+            }
+
+            model@optimResult <- list(value = value,
+                                      counts = c(i, 0),
+                                      convergence = convergence
+                                      )
             return(model)
           }
           )
 
+setMethod("glmnetFit", "PointProcessModel",
+          function(model, control = list(), refit = FALSE, ...) {
+            hasGlmnet <- require("glmnet")
+            if(!hasGlmnet) {
+              stop("Package 'glmnet' is not installed.")
+            } else {
+              offset <- log(model@delta)
+              weights <- rep(1, length(offset))
+              weights[offset == -Inf] <- 0
+              offset[offset == -Inf] <- 0
+              y <- rep(0, length(offset))
+              y[getPointPointer(processData(model), ppstat:::response(model))] <- 1
+              ## TODO: How do we automatically compute a lambda sequence
+              ##              lambda <- exp(seq(-4, -15, -0.1))
+
+              glmnetFit <- glmnet(x = ppstat:::getModelMatrix(model),
+                                  y = y,
+                                  family = "poisson",
+                                  offset = offset,
+                                  weights = weights,
+                                  standardize = FALSE,
+                                  alpha = 1)
+              browser()
+              coef <- coefficients(glmnetFit)
+              mll <- sapply(seq(1, dim(coef)[2]),
+                            function(i) {
+                              computeMinusLogLikelihood(testModel, coef[ ,i])
+                            }
+                            )
+              
+              coefficients(model) <- coefficients(glmnetFit, "lambda.min")[, 1]
+              nzCoef <- tapply(coefficients(model),
+                               ppstat:::getAssign(model),
+                               function(x) any(x != 0)
+                               )
+              
+              nzCoef <- which(nzCoef[names(nzCoef) != "0"])
+              
+              zc <- which(coefficients(model) == 0)
+              model@fixedCoefficients <- list(which = zc,
+                                              values = rep(0, length(zc)))
+              model <- update(model, nzCoef, fit = refit)
+              model <- ppstat:::computeVar(model)
+              
+              optimResult <- list(value = computeMinusLogLikelihood(model),
+                                  counts = c(glmnetFit$npasses, 0),
+                                  convergence = 0
+                                  )
+              model@optimResult <- optimResult
+            }
+            return(model)
+          }
+          )
+
+setMethod("glmFit", "PointProcessModel",
+          function(model, control = list(), ...) {
+            offset <- log(model@delta)
+            weights <- rep(1, length(offset))
+            weights[offset == -Inf] <- 0
+            offset[offset == -Inf] <- 0
+            y <- rep(0, length(offset))
+            y[getPointPointer(processData(model), ppstat:::response(model))] <- 1
+            glmFit <- glm.fit(x = as(ppstat:::getModelMatrix(model), "matrix"),
+                              y = y,
+                              family = poisson(),
+                              offset = offset,
+                              weights = weights,
+                              control = control)
+            
+            coefficients(model) <- glmFit$coefficients
+            
+            if(isTRUE(glmFit$converged)) {
+                convergence <- 0
+              } else {
+                convergence <- glmFit$converged
+              }
+            
+            optimResult <- list(value = computeMinusLogLikelihood(model),
+                                counts = c(glmFit$iter, 0),
+                                convergence = convergence
+                                )
+            model@optimResult <- optimResult
+            
+            return(model)
+          }
+          )
           
 
 setMethod("print","PointProcessModel",
@@ -907,9 +1148,9 @@ setMethod("summary", "PointProcessModel",
             se <- sqrt(diag(object@var))
             z <- object@coefficients/se
             q <- 2*(1-pnorm(abs(z)))
-            z[se==0] <- NA
-            q[se==0] <- NA
-            se[se==0] <- NA
+            z[se == 0] <- NA
+            q[se == 0] <- NA
+            se[se == 0] <- NA
             
             result$coefficients <- matrix(c(object@coefficients, se, z, q), ncol=4)
             zapNames <- sapply(names(object@coefficients),
@@ -935,44 +1176,57 @@ setMethod("summary", "PointProcessModel",
 
 setMethod("vcov", "PointProcessModel",
           function(object,...){
-            attr(object@var,"method") <- object@varMethod
+            attr(object@var, "method") <- object@varMethod
             return(object@var)
           }
           )
 
 setMethod("update", "PointProcessModel",
-          function(object, formula = .~., warmStart = TRUE, fixedCoefficients = list(), ...){
-
+          function(object, formula = .~., warmStart = TRUE, fixedCoefficients = list(), fit = TRUE, ...){
             
             modelFormula <- formula(object)
+            if(class(formula) != "formula") {
+              selectTerms <- as.numeric(formula)
+              selectTerms <- selectTerms[selectTerms > 0]
+              formula <- formula(terms(modelFormula)[selectTerms])
+            }
+            superFormula <- terms(object@modelMatrixEnv$formula)
             updatedFormula <- update(modelFormula, formula)
             updatedTermLabels <- attr(terms(updatedFormula), "term.labels")
-            superTermLabels <- attr(terms(attr(getModelMatrix(object, numeric()), "formula")), "term.labels")
-            attr(updatedFormula, "filterTerms") <- which(updatedTermLabels %in% attr(terms(modelFormula), "term.labels")[attr(modelFormula, "filterTerms")])
+            superTermLabels <- attr(superFormula, "term.labels")
+            superFilterTerms <- superTermLabels[attr(object@modelMatrixEnv$formula,
+                                                     "filterTerms")]
+            setFilterTerms(object) <- which(updatedTermLabels %in%
+                                            superFilterTerms)
             
-            if(attr(terms(updatedFormula), "intercept") == 1) updatedTermLabels <- c("Intercept", updatedTermLabels)
-            if(attr(terms(attr(getModelMatrix(object,numeric()), "formula")), "intercept") == 1) superTermLabels <- c("Intercept", superTermLabels)
+            if(attr(terms(updatedFormula), "intercept") == 1)
+              updatedTermLabels <- c("Intercept", updatedTermLabels)
+            if(attr(superFormula, "intercept") == 1)
+              superTermLabels <- c("Intercept", superTermLabels)
            
             formula(object) <- updatedFormula
             
             if(length(object@modelMatrixCol) == 0){
               tmpCoef <- coefficients(object)
             } else {
-              tmpCoef <- rep(.Machine$double.eps ,dim(getModelMatrix(object, numeric()))[2])
+              tmpCoef <- rep(.Machine$double.eps, dim(getModelMatrix(object, numeric()))[2])
               tmpCoef[object@modelMatrixCol] <- coefficients(object)
             }
 
             if(all(updatedTermLabels %in% superTermLabels)) {
-              if("Intercept" %in%  superTermLabels) {
-                col <- which(superTermLabels[attr(getModelMatrix(object,numeric()),"assign")+1] %in% updatedTermLabels)
+              if("Intercept" %in% superTermLabels) {
+                col <- which(superTermLabels[getAssign(object, numeric()) + 1] %in% updatedTermLabels)
               } else {
-                col <- which(superTermLabels[attr(getModelMatrix(object,numeric()),"assign")] %in% updatedTermLabels)
+                col <- which(superTermLabels[getAssign(object, numeric())] %in% updatedTermLabels)
               }
-              ## TODO: The following checks whether there are interactions in the model. There is a general problem with
-              ## choices of contrasts in submodels that should be dealt with. Removing e.g. the intercept gives a peculiar
-              ## model it seems ... 
+              ## TODO: The following checks whether there are
+              ## interactions in the model. There is a general problem
+              ## with choices of contrasts in submodels that should be
+              ## dealt with. Removing e.g. the intercept gives a
+              ## peculiar model it seems ...
               if(any(attr(terms(modelFormula), "order") >= 2)) {
-                warning(paste(c(object@call,"Original model formula includes interaction terms. Check that updated model is as expected."),collapse="\n"), call. = FALSE)
+                warning(paste(c(object@call, "Original model formula includes interaction terms. Check that updated model is as expected."),
+                              collapse="\n"), call. = FALSE)
               }
               if(length(col) == length(tmpCoef)) {
                 object@modelMatrixCol <- numeric()
@@ -982,11 +1236,13 @@ setMethod("update", "PointProcessModel",
               if(warmStart) {
                 coefficients(object) <- tmpCoef[col]
               } else {
-                coefficients(object) <- rep(0,length(col))
+                coefficients(object) <- rep(0, length(col))
               }
             } else {
+              unlockBinding("basis", object@basisEnv)
               object <- computeModelMatrix(object)
-              coefficients(object) <- rep(.Machine$double.eps, dim(getModelMatrix(object))[2])
+              coefficients(object) <- rep(.Machine$double.eps,
+                                          dim(getModelMatrix(object))[2])
             }
             
             if(length(fixedCoefficients) != 0) {
@@ -1002,12 +1258,17 @@ setMethod("update", "PointProcessModel",
               object@fixedCoefficients <- list()
             }   
             
-
             call <- as.list(object@call)
             call$formula <- formula(object)
             object@call <- as.call(call)
+
+            if(fit) {
+              object <- ppmFit(object, ...)
+            } else {
+              object <- computeVar(object, method = "subset")
+            }
             
-            return(ppmFit(object, ...))
+            return(object)
           }
           )
 
@@ -1019,8 +1280,18 @@ setMethod("getInformation", "PointProcessModel",
           }
           )
 
+setReplaceMethod("setFilterTerms", "PointProcessModel",
+                 function(model, value) {
+                   model@filterTerms <- value
+                   return(model)
+                 }
+                 )
+
+## TODO: Is it possible to implement the following using parallelization?
+
 setMethod("stepInformation", "PointProcessModel",
-          function(model, direction = "both", trace = 1, steps = 1000, warmStart = TRUE, k = 2, ...) {
+          function(model, scope = ~ 0, direction = "both", trace = 1,
+                   steps = 1000, warmStart = TRUE, k = 2, ...) {
             if(trace == 1) 
               cat(" Step \t  AIC \t\t Direction\n")
             
@@ -1029,10 +1300,10 @@ setMethod("stepInformation", "PointProcessModel",
             models[["current"]] <- model
             models$current@varMethod <- 'none'
             step <- 1
+            termsToAdd <- attr(terms(scope), "term.labels")
             initialForm <- terms(formula(model))
             initialTerms <- attr(initialForm, "term.labels")
             currentTerms <- initialTerms
-            termsToAdd <- character()
             termsToRemove <- currentTerms
             minDirection <- "start"
             while(step < steps) {
@@ -1042,8 +1313,8 @@ setMethod("stepInformation", "PointProcessModel",
                 cat(" ", step, "\t", AIC$current, "\t ", minDirection, "\n")
 
               if(trace == 2) {
-                cat("Step:", step, "\tAIC:", AIC$current, "\n")
-                cat("Model:", deparse(formula(models$current)), "\n")
+                cat("Step:", step, "\tAIC:", AIC$current,"\n")
+                cat("Model:", deparse(formula(models$current)),"\n")
                 cat("Direction:", minDirection, "\n\n")
                 
               }
@@ -1102,5 +1373,19 @@ setMethod("stepInformation", "PointProcessModel",
             models$current@varMethod <- model@varMethod
             model <- ppmFit(models$current)
             return(invisible(model))
+          }
+          )
+
+
+setMethod("updateModelMatrix", "PointProcessModel",
+          function(model, modelMatrix = getModelMatrix(model), assign = getAssign(model), form){
+            force(modelMatrix)
+            model@modelMatrixEnv <- new.env(parent = emptyenv())
+            model@modelMatrixEnv$modelMatrix <- modelMatrix
+            model@modelMatrixEnv$assign <- assign
+            if(!missing(form))
+              model@modelMatrixEnv$formula <- form
+            model@modelMatrixCol <- numeric()
+            return(model)
           }
           )

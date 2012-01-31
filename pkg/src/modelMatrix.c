@@ -55,10 +55,7 @@ SEXP computePointProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP ze
   xZ = REAL(Z);
 
   d = REAL(delta)[0];
-  //This choice of epsilon is to make sure that certain floor commands 
-  //below return the desired integer even in borderline cases. 
-  epsilon = d/10;
-
+ 
   antip = d*REAL(zero)[0];
   w = d*(nB[0]-1);
   
@@ -75,7 +72,7 @@ SEXP computePointProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP ze
       if(diff > 0) {
 	while(diff <= w) 
 	  { 
-	    lookupIndex = floor(diff/d + epsilon);
+	    lookupIndex = floor(diff/d + 0.5);
 	    xZ[entry] += xB[lookupIndex + col];
 	    ns--;
 	    if(ns < 0) break;

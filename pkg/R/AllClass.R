@@ -1,7 +1,7 @@
 setClass("Family",
          representation(
                         name = "character",
-                        link = "character",       ## Name of the link, e.g. log if phi=exp
+                        link = "character",       ## Name of the link, e.g. log if phi = exp
                         phi = "function",         ## The function that may be called the inverse link
                         Dphi = "function",        ## First derivative
                         D2phi= "function"         ## Second derivative
@@ -34,30 +34,41 @@ setClass("PointProcess",
 
 setClass("PointProcessModel",
          representation(
-                        ## Evaluations of basis functions in support at Delta-grid values are in 
-                        ## the list 'basis' in this environment.
+                        ## Evaluations of basis functions in support
+                        ## at Delta-grid values are in the list
+                        ## 'basis' in this environment.
                         basisEnv = "environment",
                         
-                        ## The 'basisPoints' contains the evaluation points for the basis functions.
+                        ## The 'basisPoints' contains the evaluation
+                        ## points for the basis functions.
                         basisPoints = "numeric",
                         
                         coefficients = "numeric",
                         fixedCoefficients = "list",
+                        filterTerms = "numeric",
                         
-                        ## The 'active' columns. Set in update, used in getModelMatrix and reset in computeModelMAtrix
+                        ## The 'active' columns. Set in update, used
+                        ## in getModelMatrix and reset in
+                        ## computeModelMAtrix
                         modelMatrixCol = "numeric",
                         
-                        ## The modelMatrix as a 'Matrix' is in this environment. Locked after computation.
+                        ## The modelMatrix of class 'modelMatrix' is
+                        ## in this environment. So is the formula used
+                        ## to create the model matrix and an 'assign'
+                        ## vector. Locked after computation.
                         modelMatrixEnv = "environment",
 
                         Omega = "matrix",
                         penalization = "logical",
                         var = "matrix",
                         
-                        ## Which method is used to compute the estimate of the variance. 'pointProcessModel' has default 'Fisher'.
+                        ## Which method is used to compute the
+                        ## estimate of the
+                        ## variance. 'pointProcessModel' has default
+                        ## 'Fisher'.
                         varMethod = "character"      
                         ),
-         contains="PointProcess",
+         contains = "PointProcess",
          validity = function(object) {
            if(isTRUE(object@penalization) && !isTRUE(all.equal(min(eigen(object@Omega,only.values=TRUE,symmetric=TRUE)$values,0),0)))
              stop("Penalization matrix 'Omega' is not positive semi-definite.")
@@ -70,5 +81,16 @@ setClass("PointProcessModel",
          )
 
 setClass("PointProcessSmooth",
-         contains="PointProcessModel"
+         contains = "PointProcessModel"
          )
+
+setClass("MultivariatePointProcess",
+         representation(
+                        models = "list",
+                        adjMat = "matrix"
+                        ),
+         validity = function(object) {
+           if(any(sapply(object@models, function(m) !isClass(m, "PointProcessModel"))))
+             stop("Objects in model list are not all of class 'PointProcessModel'.")
+         }
+       )

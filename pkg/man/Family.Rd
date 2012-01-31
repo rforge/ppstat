@@ -1,5 +1,6 @@
 \name{Family-class}
 \docType{class}
+\alias{Family}
 \alias{Family-class}
 \alias{family,Family-method}
 \alias{makeLink}
