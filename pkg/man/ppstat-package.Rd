@@ -14,8 +14,8 @@ point process models.
 \tabular{ll}{
 Package: \tab ppstat\cr
 Type: \tab Package\cr
-Version: \tab 0.7.9 \cr
-Date: \tab 2012-02-02 \cr
+Version: \tab 0.8 \cr
+Date: \tab 2012-03-01 \cr
 License: \tab GPL version 2 or newer \cr
 URL: \tab http://www.math.ku.dk/~richard/ppstat \cr
 LazyLoad: \tab yes\cr

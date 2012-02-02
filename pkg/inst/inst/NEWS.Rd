@@ -1,7 +1,7 @@
 \name{NEWS}
 \title{ppstat News}
 
-\section{Changes in processdata version 0.8}{
+\section{Changes in ppstat version 0.8}{
   \subsection{New features}{
     \itemize{
       \item The class \code{MultivariatePointProcess} has been

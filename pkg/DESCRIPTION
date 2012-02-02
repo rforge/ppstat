@@ -1,8 +1,8 @@
 Package: ppstat
 Type: Package
 Title: Point Process Statistics
-Version: 0.7.9
-Date: 2011-01-13
+Version: 0.8
+Date: 2012-03-01
 Author: Niels Richard Hansen <Niels.R.Hansen@math.ku.dk>.
 Maintainer: Niels Richard Hansen <Niels.R.Hansen@math.ku.dk>
 Depends: R (>= 2.14.1), processdata (>= 0.7.8), reshape2,  
