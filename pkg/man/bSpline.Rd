@@ -41,7 +41,7 @@ bSpline(x, knots, ..., sym = FALSE, trunc = NULL)
 \value{
   
   A matrix of basis function evaluations. Zero-columns returned from
-  \code{splineDesign} are thrown away.
+  \code{splineDesign} are discarded.
 
 } \author{Niels Richard Hansen, \email{Niels.R.Hansen@math.ku.dk}}
 

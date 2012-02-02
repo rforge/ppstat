@@ -31,7 +31,7 @@ pointProcessModel <- function(
   if(missing(basisPoints))
     {
       if(length(support) == 1)
-        support <- c(0,max(support[1],0))
+        support <- c(0, max(support[1], 0))
           
       if(missing(Delta))
         Delta <- (support[2] - support[1])/N
@@ -103,7 +103,11 @@ pointProcessModel <- function(
   if(modelMatrix) {
     model <- computeModelMatrix(model)
   } else {
-    setModelMatrix(model) <- Matrix()
+    model <- updateModelMatrix(model,
+                               Matrix(),
+                               assign = numeric(),
+                               form = formula(~0)
+                               )
   }
   
   if(missing(coefficients))
@@ -180,7 +184,7 @@ setMethod("computeBasis", "PointProcessModel",
                                "' is currently not supported.", sep=""))
                   } else {
                     filterTerms <- c(filterTerms, i)
-                    form <- update(mt[i], ~.-1)
+                    form <- update(mt[i], ~ . -1)
                     x <- as.data.frame(model@basisPoints)
                     colnames(x) <- variable
                     model@basisEnv$basis[[term]] <- model.matrix(form, x)
@@ -360,7 +364,6 @@ setMethod("computeWorkingResponse", "PointProcessModel",
           }
           )
             
-
 setMethod("computeLinearPredictor","PointProcessModel",
           function(model,coefficients=NULL,...){
             if(is.null(coefficients)) {
@@ -399,7 +402,7 @@ setMethod("computeModelMatrix", "PointProcessModel",
             ## the 'zero' accordingly.
 
             if(anticipating(model)) {
-              zero <- which(model@basisPoints == 0)
+              zero <- which(model@basisPoints == 0) - 1
             } else {
               zero <- 0
             }
@@ -608,44 +611,48 @@ setMethod("computeModelMatrix", "PointProcessModel",
 
 setMethod("computeVar", "PointProcessModel",
           function(model, method = attr(vcov(model), "method"), ...){
-            if(method == "subset") {
-              varMatrix <- vcov(model)
-              i <- which(rownames(varMatrix) %in% names(coefficients(model)))
-              model@var <- varMatrix[i, i, drop = FALSE]
-            } else if(method == "none"){
-              model@var <- matrix(0, length(coefficients(model)),
-                                  length(coefficients(model)))
-            } else if(method == "Fisher") {
-              vcovInv <- computeDDMinusLogLikelihood(model)
-              if(model@penalization)
-                vcovInv <- vcovInv + 2*model@Omega
-              ## TODO: This requires some more thought ....
-              vcov <- matrix(0, nrow = dim(vcovInv)[1],
-                             ncol=dim(vcovInv)[2])
+            switch(method,
+                   subset = {
+                     varMatrix <- vcov(model)
+                     i <- which(rownames(varMatrix) %in% names(coefficients(model)))
+                     model@var <- varMatrix[i, i, drop = FALSE]
+                   },
+                   none = {
+                     model@var <- matrix(0, length(coefficients(model)),
+                                         length(coefficients(model)))
+                   },
+                   Fisher = {
+                     vcovInv <- computeDDMinusLogLikelihood(model)
+                     if(model@penalization)
+                       vcovInv <- vcovInv + 2*model@Omega
+                     ## TODO: This requires some more thought ....
+                     vcov <- matrix(0, nrow = dim(vcovInv)[1],
+                                    ncol=dim(vcovInv)[2])
               
-              if(length(model@fixedCoefficients) == 0) {
-                tmp <- try(solve(vcovInv), silent = TRUE)
-                if(class(tmp) == "try-error") {
-                  message("Fisher information singular:\n", tmp[1], " Check convergence status or parameterization.")
-                } else {
-                  vcov <- tmp
-                }
-              } else {
-                tmp <- try(solve(vcovInv[-model@fixedCoefficients$which,
-                                         -model@fixedCoefficients$which]),
-                           silent=TRUE)
-                if(class(tmp) == "try-error") {
-                  message("Fisher information singular:\n", tmp[1], " Check convergence status and parameterization.")
-                } else {
-                  vcov[-model@fixedCoefficients$which,
-                       -model@fixedCoefficients$which] <- tmp
-                }
-              }
-              rownames(vcov) <- names(model@coefficients)
-              colnames(vcov) <- names(model@coefficients)
-              model@var <- (vcov + t(vcov))/2   ## To assure symmetry
-            }
-            
+                     if(length(model@fixedCoefficients) == 0) {
+                       tmp <- try(solve(vcovInv), silent = TRUE)
+                       if(class(tmp) == "try-error") {
+                         message("Fisher information singular:\n", tmp[1], " Check convergence status or parameterization.")
+                       } else {
+                         vcov <- tmp
+                       }
+                     } else {
+                       tmp <- try(solve(vcovInv[-model@fixedCoefficients$which,
+                                                -model@fixedCoefficients$which]),
+                                  silent=TRUE)
+                       if(class(tmp) == "try-error") {
+                         message("Fisher information singular:\n", tmp[1], " Check convergence status and parameterization.")
+                       } else {
+                         vcov[-model@fixedCoefficients$which,
+                              -model@fixedCoefficients$which] <- tmp
+                       }
+                     }
+                     
+                     rownames(vcov) <- names(model@coefficients)
+                     colnames(vcov) <- names(model@coefficients)
+                     model@var <- (vcov + t(vcov))/2   ## To assure symmetry
+                   }
+                   )
             return(model)
           }
           )
@@ -826,19 +833,21 @@ setMethod("termPlot", "PointProcessModel",
                   scale_y_continuous("") + layer
             
             if(!isTRUE(all.equal(alpha, 1)))
-              linearFilterPlot <- linearFilterPlot + geom_ribbon(aes(min = cf.lower, max = cf.upper), fill = "blue", alpha = 0.2)
+              linearFilterPlot <- linearFilterPlot +
+                geom_ribbon(aes(min = cf.lower, max = cf.upper),
+                            fill = "blue", alpha = 0.2)
 
             return(linearFilterPlot)
           }
           )
 
 setMethod("ppmFit", "PointProcessModel",
-          function(model, control = list(), method = "optim", ...) {
-            model <- switch(method,
+          function(model, control = list(), optim = 'optim', ...) {
+            model <- switch(optim,
                             optim = optimFit(model = model, control = control, ...),
                             IWLS = iwlsFit(model = model, control = control, ...),
-                            lm = lmFit(model = model, control = control, ...),
-                            glm = glmFit(model = model, control = control, ...),
+                            ls = lsFit(model = model, control = control, ...),
+                            poisson = glmFit(model = model, control = control, ...),
                             glmnet = glmnetFit(model = model, control = control, ...)
                             )
             ## Computation of the estimated covariance matrix

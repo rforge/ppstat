@@ -10,7 +10,7 @@ plot(toyData)
 ## function with support [0,2], a linear parametrization and a
 ## basis expansion in terms of B-spline basis functions with knots
 ## equidistantly distributed from -1 to 2.
-toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-1,2,0.5)),
+toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-1, 2, 0.5)),
                             data = toyData,
                             family = Hawkes(),
                             support = 2,
@@ -21,7 +21,7 @@ termPlot(toyPPM)
 ## Alternative analysis. The filter function is composed of two
 ## constant components.
 
-toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0,1,2)),
+toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0, 1, 2)),
                             data = toyData,
                             family = Hawkes(),
                             support = 2,
@@ -55,8 +55,8 @@ termPlot(toyPPM)
 
 ## We can include self-dependence of the BETA-points, and a time trend.
 
-toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1,2,0.5)) +
-                            bSpline(BETA, knots = seq(-1,2,0.5)),
+toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1, 2, 0.5)) +
+                            bSpline(BETA, knots = seq(-1, 2, 0.5)),
                             data = toyData,
                             family = Hawkes(),
                             support = 2,
@@ -66,8 +66,8 @@ termPlot(toyPPM)
 
 ## We can change the 'link' function to the log-link.
 
-toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1,2,0.5)) +
-                            bSpline(BETA, knots = seq(-1,2,0.5)),
+toyPPM <- pointProcessModel(BETA ~ time + bSpline(ALPHA, knots = seq(-1, 2, 0.5)) +
+                            bSpline(BETA, knots = seq(-1, 2, 0.5)),
                             data = toyData,
                             family = Hawkes("log"),
                             support = 2,
@@ -77,7 +77,7 @@ termPlot(toyPPM, trans = exp)
 
 ## The Gibbs family allows for anticipation in the linear filter.
 
-toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-3,3,0.5)),
+toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-3, 3, 0.5)),
                             data = toyData,
                             family = Gibbs(),
                             support = c(-2,2),
@@ -88,11 +88,11 @@ termPlot(toyPPM)
 ## For the Gibbs family the filter function can be made symmetric, if the
 ## basis functions are. Using 'bSpline' this is achieved as follows.
 
-toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-3,3,0.5), sym = TRUE),
-                            data=toyData,
-                            family=Gibbs(),
-                            support=c(-2,2),
-                            Delta=0.01)
+toyPPM <- pointProcessModel(BETA ~ bSpline(ALPHA, knots = seq(-3, 3, 0.5), sym = TRUE),
+                            data = toyData,
+                            family = Gibbs(),
+                            support = c(-2, 2),
+                            Delta = 0.01)
 summary(toyPPM)
 termPlot(toyPPM)
 
@@ -106,12 +106,11 @@ termPlot(toyPPM)
 ## axis. Using 'bSpline' we set 'trunc = 0' to truncate the basis
 ## expansion at 0.
 
-toyPPM <- pointProcessModel(BETA ~ bSpline(BETA, knots = seq(-3,3,1), trunc = 0) +
-                            bSpline(ALPHA, knots = seq(-3,3,1, trunc = c(-2,2))),
+toyPPM <- pointProcessModel(BETA ~ bSpline(BETA, knots = seq(-3, 3, 1), trunc = 0) +
+                            bSpline(ALPHA, knots = seq(-3, 3, 1, trunc = c(-2, 2))),
                             data = toyData,
                             family = Gibbs(),
-                            support=c(-2,2),
-                            Delta=0.01)
+                            support = c(-2, 2),
+                            Delta = 0.01)
 summary(toyPPM)
-termPlot(toyPPM)
-+ coord_cartesian(ylim=c(-2,2))
+termPlot(toyPPM) + coord_cartesian(ylim = c(-2, 2))

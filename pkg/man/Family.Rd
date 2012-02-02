@@ -69,9 +69,9 @@ Alternatively, the constructors \code{\link{Hawkes}} and
 
   Note that in order to prevent taking the logarithm of 0 in the
   computation of the minus-log-likelihood function, and thus preventing
-  the minus-log-likelihood from taking the value \code{Inf}, all the
-  standard link functions are truncated below at the value
-  \code{.Machine$double.eps}.
+  the minus-log-likelihood from taking the value \code{Inf}, the
+  implementation modifies the standard link functions to be bounded
+  below by \code{.Machine$double.eps}.
 
 }
     

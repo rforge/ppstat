@@ -34,7 +34,7 @@ SEXP computePointProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SEXP ze
    */
 
   int i, j, nt, ns, nss, *nB, lookupIndex, entry, col;
-  double *xt, *xs, *xB, *xZ, d, w, diff, antip, target, epsilon;
+  double *xt, *xs, *xB, *xZ, d, w, diff, antip, target;
   SEXP Z, BDIM;
 
   if(!isMatrix(B)) error("B must be a matrix when using computePointProcessFilterMatrix");
@@ -98,7 +98,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
    */
 
   int i, j, k, nt, *nB, lookupIndexLeft, lookupIndexRight, entry, col;
-  double *xt, *xs, *xB, *xZ, *BB, d, w, xs0, diffLeft, diffRight, epsilon;
+  double *xt, *xs, *xB, *xZ, *BB, d, w, xs0, diffLeft, epsilon;
   SEXP Z, BDIM;
 
   if(!isMatrix(B)) error("B must be a matrix when using computeModelMatrix.");

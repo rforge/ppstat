@@ -12,9 +12,11 @@
   Performs a stepwise, greedy model selection using an information criteria.
 }
 \usage{
-\S4method{stepInformation}{PointProcessModel}(model, scope = ~ 0, direction = "both", trace = 1, steps = 1000, warmStart = TRUE, k = 2, \dots)
+\S4method{stepInformation}{PointProcessModel}(model, scope = ~ 0, direction = "both", trace = 1,
+steps = 1000, warmStart = TRUE, k = 2, \dots)
 
-\S4method{stepInformation}{MultivariatePointProcess}(model, scope = ~ 0, direction = "both", trace = 1, steps = 1000, warmStart = TRUE, k = 2, \dots)
+\S4method{stepInformation}{MultivariatePointProcess}(model, scope = ~ 0, direction = "both", trace = 1,
+steps = 1000, warmStart = TRUE, k = 2, \dots)
 
 \S4method{getInformation}{PointProcessModel}(model, k = 2, \dots)
 

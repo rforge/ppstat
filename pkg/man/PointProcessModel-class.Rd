@@ -3,7 +3,8 @@
 \alias{PointProcessModel-class}
 \alias{PointProcessSmooth-class}
 \alias{coefficients,PointProcessModel-method}
-\alias{coefficients<-,PointProcessModel-method}
+\alias{coefficients<-}
+\alias{coefficients<-,PointProcessModel,numeric-method}
 \alias{computeDDMinusLogLikelihood,PointProcessModel-method}
 \alias{computeDDMinusLogLikelihood}
 \alias{computeDMinusLogLikelihood,PointProcessModel-method}
@@ -38,7 +39,7 @@
 \section{Objects from the Class}{
   
   Objects can be created by calls of the form
-  \code{pointProcessModel(formula, data, family, support)} where
+  \code{pointProcessModel(formula, data, family)} where
   \code{data} is an object of class \code{MarkedPointProcess}.
   
   The model object contains the data used for fitting the model and a
@@ -96,7 +97,7 @@
       Returns the estimated model parameters.}
 
     \item{coefficients<-}{\code{signature(.Object =
-	"PointProcessModel")}: Sets the model parameters.}
+	"PointProcessModel",value = "numeric")}: Sets the model parameters.}
 
     \item{computeBasis}{\code{signature(model = "PointProcessModel",
 	term = "character", varLabels = "character")}: Computes the

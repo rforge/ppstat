@@ -8,15 +8,14 @@ if(require("RUnit", quietly = TRUE)) {
   pkg <- "ppstat"
   ## Path to unit tests for installed package 
   ## PKG.Rcheck/tests/../PKG/unitTests
-  pathReport <- path <- system.file(package = pkg, "unitTests")
+  path <- system.file(package = pkg, "unitTests")
   if(Sys.getenv("RCMDCHECK") == "FALSE") {
     ## Path to report for standalone running using make
-    pathReport <- file.path(getwd(), "unitTests")
-  } else {
-    
+    path <- file.path(getwd(), "unitTests")
   }
+  
   cat("\nRunning unit tests\n")
-  print(list(pkg = pkg, pathToReport = pathReport))
+  print(list(pkg = pkg, pathToReport = path))
  
   library(package=pkg, character.only = TRUE)
  
@@ -40,7 +39,7 @@ if(require("RUnit", quietly = TRUE)) {
   options(RUnit = RUnitOp$RUnit)
  
   ## Default report name
-  pathReport <- file.path(pathReport, "report")
+  pathReport <- file.path(path, "report")
  
   ## Report to stdout and text files
   cat("------------------- UNIT TEST SUMMARY ---------------------\n\n")

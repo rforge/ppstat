@@ -62,9 +62,11 @@ Archea virus genome data.
 
 \examples{
 data(archeaVirus)
-\dontrun{## Plot of the point process data only
-plot(archeaVirus[,-c(1,2)])
-}
+
+\dontrun{
+## Plot of the point process data only
+plot(archeaVirus[,-c(1,2)])}
+
 demo(archeaVirus)
 }
 

@@ -14,8 +14,8 @@ point process models.
 \tabular{ll}{
 Package: \tab ppstat\cr
 Type: \tab Package\cr
-Version: \tab 0.7.6 \cr
-Date: \tab 2011-01-13 \cr
+Version: \tab 0.7.9 \cr
+Date: \tab 2012-02-02 \cr
 License: \tab GPL version 2 or newer \cr
 URL: \tab http://www.math.ku.dk/~richard/ppstat \cr
 LazyLoad: \tab yes\cr
@@ -31,7 +31,7 @@ stored as an object of S4-class
 \code{\linkS4class{MarkedPointProcess}}. A \code{MarkedPointProcess}
 object can hold data from a marked point process as well as additional
 (covariate) continuous processes. Another function is
-\code{\link{pointProcessSmooth}}, which implements automatic basis
+\code{\link{pointProcessSmooth}} that implements automatic basis
 expansion and smoothing of linear filter functions.
 
 The data structures for continuous and marked point processes are
