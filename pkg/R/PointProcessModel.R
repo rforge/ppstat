@@ -172,9 +172,8 @@ setMethod("computeBasis", "PointProcessModel",
               
               mt <- delete.response(terms(formula(model)))
               termLabels <- attr(mt, "term.labels")
-              nrTerms <- length(termLabels)
               filterTerms <- numeric()
-              for(i in 1:nrTerms) {
+              for(i in seq_along(termLabels)) {
                 term <- termLabels[i]
                 variable <- all.vars(mt[i])
                 
@@ -288,7 +287,7 @@ setMethod("computeDDMinusLogLikelihood", "PointProcessModel",
 
 
 setMethod("computeWeights", "PointProcessModel",
-          function(model, coefficients = NULL, method = c("Poisson", "empirical"), ...) {
+          function(model, coefficients = NULL, method = c("poisson", "empirical"), ...) {
             if(isTRUE(response(model) == ""))
               stop("No response variable specified.")
             
@@ -304,7 +303,7 @@ setMethod("computeWeights", "PointProcessModel",
                  points <- getPointPointer(processData(model), response(model))
                  etaP <- eta[points]
                  w <- rep(0, length(eta))
-                 w[points] <- 1/model@family@phi(etaP)^2
+                 w[points] <- 1/etaP^2
                  
                } else {
                  
@@ -315,7 +314,7 @@ setMethod("computeWeights", "PointProcessModel",
                  
                }
                               
-             } else if(method[1] == "Poisson") {
+             } else if(method[1] == "poisson") {
 
                w <- (model@family@Dphi(eta)^2*model@delta)/model@family@phi(eta)
                
@@ -323,8 +322,7 @@ setMethod("computeWeights", "PointProcessModel",
                stop(paste("Method", method[1], "is not a valid weight method."))
              }
 
-            ## Weights are truncated to be non-negative, and small
-            ## weights are put equal to 0.
+            ## Negative and small weights are set equal to 0. 
             
             w[w < .Machine$double.eps] <- 0
             
@@ -359,8 +357,10 @@ setMethod("computeWorkingResponse", "PointProcessModel",
               
             }
             
-            return(wr)
-            
+            return(list(weights = w,
+                        workingResponse = wr
+                        )
+                   )
           }
           )
             
@@ -621,6 +621,27 @@ setMethod("computeVar", "PointProcessModel",
                      model@var <- matrix(0, length(coefficients(model)),
                                          length(coefficients(model)))
                    },
+                   lsSandwich = {
+                     X <- ppstat:::getModelMatrix(model)
+                     points <- getPointPointer(processData(model),
+                                                      ppstat:::response(model))
+                     vcov <- matrix(0, nrow = dim(X)[2], ncol = dim(X)[2])
+                     fixed <- model@fixedCoefficients
+                     if(length(fixed) == 0) {
+                       Iinv <- crossprod(sqrt(model@delta) * X)
+                       K <- crossprod(X[points, ])
+                     } else {
+                       Iinv <- crossprod(sqrt(model@delta) * X[, -fixed$which])
+                       K <- crossprod(X[points, -fixed$which])
+                     }                       
+                     Iinv <- try(solve(Iinv), silent = TRUE)
+                     if(class(Iinv) == "try-error") 
+                       message("Model matrix not of full column rank:\n", Iinv[1], " Check parameterization.")
+                     vcov <- as(Iinv %*% K %*% Iinv, "matrix") ### Sandwich estimator
+                     rownames(vcov) <- names(model@coefficients)
+                     colnames(vcov) <- names(model@coefficients)
+                     model@var <- vcov
+                   },
                    Fisher = {
                      vcovInv <- computeDDMinusLogLikelihood(model)
                      if(model@penalization)
@@ -650,7 +671,7 @@ setMethod("computeVar", "PointProcessModel",
                      
                      rownames(vcov) <- names(model@coefficients)
                      colnames(vcov) <- names(model@coefficients)
-                     model@var <- (vcov + t(vcov))/2   ## To assure symmetry
+                     model@var <- (vcov + t(vcov))/2   ## To ensure symmetry
                    }
                    )
             return(model)
@@ -845,10 +866,12 @@ setMethod("ppmFit", "PointProcessModel",
           function(model, control = list(), optim = 'optim', ...) {
             model <- switch(optim,
                             optim = optimFit(model = model, control = control, ...),
-                            IWLS = iwlsFit(model = model, control = control, ...),
+                            iwls = iwlsFit(model = model, control = control, ...),
                             ls = lsFit(model = model, control = control, ...),
                             poisson = glmFit(model = model, control = control, ...),
-                            glmnet = glmnetFit(model = model, control = control, ...)
+                            glmnet = glmnetFit(model = model, control = control, ...),
+                            stop(paste("No optimization method '", optim,
+                                       "' available.", sep = ""), call. = FALSE)
                             )
             ## Computation of the estimated covariance matrix
             computeVar(model)
@@ -981,18 +1004,21 @@ setMethod("iwlsFit", "PointProcessModel",
 
             value <- computeMinusLogLikelihood(model)
             reltol <- sqrt(.Machine$double.eps)
-            maxit <- 1000
+            maxit <- 1000  ## Currently hardcoded!
             trace <- 1
             
             i <- 1
             while(i < maxit) {
-              w <- computeWeights(model)
-              z <- computeWorkingResponse(model)
+              ## Computation of weights and working response returned in a list
+              ## with entries 'weights' and 'workingReponse'.
+              wr <- computeWorkingResponse(model)
               ## TODO: check if lm.fit.sparse is exported. The
               ## following computation relies on an algorithm in the
               ## MatrixModels package still under development and
               ## currently not exported.
-              coefficients(model) <- MatrixModels:::lm.fit.sparse(getModelMatrix(model), z, w)
+              coefficients(model) <- MatrixModels:::lm.fit.sparse(getModelMatrix(model),
+                                                                  wr$workingResponse,
+                                                                  wr$weights)
               val <- computeMinusLogLikelihood(model)
               i <- i + 1
               if(trace > 0)
@@ -1065,6 +1091,51 @@ setMethod("glmnetFit", "PointProcessModel",
                                   convergence = 0
                                   )
               model@optimResult <- optimResult
+            }
+            return(model)
+          }
+          )
+
+setMethod("lsFit", "PointProcessModel",
+          function(model, control = list(), ...) {
+
+            if(model@family@link == "identity") {
+              if(model@varMethod != "none")
+                model@varMethod <- "lsSandwich"
+              fixedPar <- model@fixedCoefficients
+              w <- sqrt(model@delta)
+              X <- w * ppstat:::getModelMatrix(model)
+              y <- rep(0, dim(X)[1])
+              if (model@penalization) {
+                if (length(fixedPar) == 0) {
+                  Omega <- model@Omega
+                }
+                else {
+                  Omega <- model@Omega[-fixedPar$which, -fixedPar$which]
+                }
+                OmegaSVD <- svd(Omega, 0)
+                L <- Matrix(sqrt(OmegaSVD$d) * OmegaSVD$v)
+                y <- c(y, rep(0, dim(Omega)[1]))
+                X <- rBind(X, L)
+              }
+              points <- getPointPointer(processData(model), ppstat:::response(model))
+              y[points] <- 1/w[points]
+              if (length(fixedPar) == 0) {
+                model@coefficients <- MatrixModels:::lm.fit.sparse(X, 
+                                                                   y)
+              }
+              else {
+                model@coefficients[-fixedPar$which] <- MatrixModels:::lm.fit.sparse(X[, 
+                                                                                      -fixedPar$which], y)
+                model@coefficients[fixedPar$which] <- fixedPar$value
+              }
+              names(model@coefficients) <- dimnames(X)[[2]]
+              model@optimResult <- list(value = computeMinusLogLikelihood(model),
+                                        counts = c(1, 0),
+                                        convergence = 0
+                                        )
+            } else {
+              stop("Use of 'lsFit' only supported with the identity link function.")
             }
             return(model)
           }

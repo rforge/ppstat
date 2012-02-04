@@ -117,7 +117,7 @@ optim = 'optim', ...)
 
   \item{optim}{a \code{character} specifying the actual optimization
   method. The default is \code{'optim'}. Other possibilities are
-  \code{'poisson'}, \code{'glmnet'}, \code{'IWLS'} and \code{'ls'}. See
+  \code{'poisson'}, \code{'glmnet'}, \code{'iwls'} and \code{'ls'}. See
   details below for a description.}
   
   \item{\dots}{additional parameters that are passed on to \code{ppmFit}
@@ -263,7 +263,7 @@ optim = 'optim', ...)
   \eqn{\phi}{phi} function as well.
 
   Alternatives to \code{optim = 'optim'}, all experimental, include
-  \code{optim = 'poisson'} which uses the \code{glm.fit} function for
+  \code{optim = 'poisson'} based on \code{glm.fit} for
   the Poisson family. Currently, this bypasses the \eqn{\phi}{phi}
   specification and assumes \eqn{\phi = \exp}{phi = exp}. The result is
   based on the same time-discretized approximation to the
@@ -272,7 +272,7 @@ optim = 'optim', ...)
   matrices the \code{optim} function is usually faster because function
   and gradient evaluations exploit sparse matrix operations. With
   \code{optim = 'poisson'} the model matrix is coerced to a dense
-  matrix. With \code{optim = 'IWLS'} an R implementation exploiting
+  matrix. With \code{optim = 'iwls'} an R implementation exploiting
   sparse matrix operations of the iterative weighted least squares
   algorithm is used as with \code{optim = 'poisson'}. The result should
   be comparable to that of the two methods described above. With

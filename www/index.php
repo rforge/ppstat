@@ -16,7 +16,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>';
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en   ">
 
   <head>
-  <meta HTTP-EQUIV="REFRESH" content="5; url=http://www.math.ku.dk/~richard/ppstat/">
+  <meta HTTP-EQUIV="REFRESH" content="0; url=http://www.math.ku.dk/~richard/ppstat/">
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 	<title><?php echo $group_name; ?></title>
 	<link href="<?php echo $themeroot; ?>styles/estilo1.css" rel="stylesheet" type="text/css" />
@@ -34,11 +34,10 @@ echo '<?xml version="1.0" encoding="UTF-8"?>';
 <!-- get project title  -->
 <!-- own website starts here, the following may be changed as you like -->
 
-You will be redirected to the official website for the Point Process Statistics package. 
 
 <!-- end of project description -->
 
-<p> No content added. </p>
+<p> You are redirected to the official website for the Point Process Statistics package.  </p>
 
 <p> The <strong>project summary page</strong> you can find <a href="http://<?php echo $domain; ?>/projects/<?php echo $group_name; ?>/"><strong>here</strong></a>. </p>
 
