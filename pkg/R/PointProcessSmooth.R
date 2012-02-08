@@ -149,7 +149,7 @@ computeKnots <- function(x, y, support, variables, strategy = "log", method = "s
 ## TODO: New summary function for an object of class 'PointProcessSmooth'.
 ## TODO: New update function. Model matrix needs to be recomputed if we change response
 
-setMethod("summary","PointProcessSmooth",
+setMethod("summary", "PointProcessSmooth",
           function(object,...) {
             callNextMethod()
           }

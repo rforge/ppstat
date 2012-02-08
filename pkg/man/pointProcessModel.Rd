@@ -263,28 +263,29 @@ optim = 'optim', ...)
   \eqn{\phi}{phi} function as well.
 
   Alternatives to \code{optim = 'optim'}, all experimental, include
-  \code{optim = 'poisson'} based on \code{glm.fit} for
-  the Poisson family. Currently, this bypasses the \eqn{\phi}{phi}
-  specification and assumes \eqn{\phi = \exp}{phi = exp}. The result is
-  based on the same time-discretized approximation to the
-  minus-log-likelihood as with the \code{optim} function and should be
-  comparable for \eqn{\phi = \exp}{phi = exp}. For large sparse model
-  matrices the \code{optim} function is usually faster because function
-  and gradient evaluations exploit sparse matrix operations. With
+  \code{optim = 'poisson'} based on \code{glm.fit} for the Poisson
+  family. The implementation is based on the same time-discretized
+  approximation to the minus-log-likelihood as with the \code{optim}
+  function and gives comparable results. For large sparse model matrices
+  the \code{optim} function is usually faster because function and
+  gradient evaluations exploit sparse matrix operations. With
   \code{optim = 'poisson'} the model matrix is coerced to a dense
   matrix. With \code{optim = 'iwls'} an R implementation exploiting
   sparse matrix operations of the iterative weighted least squares
   algorithm is used as with \code{optim = 'poisson'}. The result should
   be comparable to that of the two methods described above. With
-  \code{optim = 'ls'} a least squares criterion is used, the
-  specification of \eqn{\phi}{phi} is bypassed and it is taken as the
-  identity. In this case the resulting quadratic optimization problem is
-  faster to solve than minimizing the minus-log-likelihood. Technically,
-  the solution has to fulfill a positivity contraint, which is currently
-  not enforced. Finally, with \code{optim = 'glmnet'} the parameters are
-  penalized with an \eqn{l_1}{l1}-norm and the solution is computed
-  using the \code{glmnet} function. Currently only with \eqn{\phi}{phi}
-  the identity and for the least squares criterion.
+  \code{optim = 'ls'} a least squares criterion is used, which only
+  works with \eqn{\phi}{phi} the identity. In this case the resulting
+  quadratic optimization problem is faster to solve than minimizing the
+  minus-log-likelihood. Technically, for the resulting model to be a
+  well specified point process, the solution has to fulfill a positivity
+  contraint, which is currently not enforced. Finally, with \code{optim
+  = 'glmnet'} the parameters are penalized with an \eqn{l_1}{l1}-norm
+  and the solution is computed using the \code{glmnet} function. This
+  works with \eqn{\phi}{phi} the identity, in which case a least squares
+  criterion is used, and with \eqn{\phi}{phi} the exponential (that is,
+  with a log-link function), in which case the minus-log-likelihood is
+  used.
   
 }
 

@@ -6,8 +6,8 @@ Date: 2012-03-01
 Author: Niels Richard Hansen <Niels.R.Hansen@math.ku.dk>.
 Maintainer: Niels Richard Hansen <Niels.R.Hansen@math.ku.dk>
 Depends: R (>= 2.14.1), processdata (>= 0.7.8), reshape2,  
-	 ggplot2 (>= 0.9.0), methods, parallel, igraph
-Imports: stats, splines, Matrix, MatrixModels
+	 ggplot2 (>= 0.9.0), methods, igraph
+Imports: stats, splines, Matrix, MatrixModels, parallel
 Suggests: RUnit, glmnet
 Description: This package implements statistical methods for one-dimensional 
 	     marked point process models.  	  

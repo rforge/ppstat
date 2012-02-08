@@ -610,7 +610,9 @@ setMethod("computeModelMatrix", "PointProcessModel",
           )
 
 setMethod("computeVar", "PointProcessModel",
-          function(model, method = attr(vcov(model), "method"), ...){
+          function(model, method = 'default', ...){
+            if(method == 'default')
+              method <- model@varMethod
             switch(method,
                    subset = {
                      varMatrix <- vcov(model)
@@ -618,28 +620,69 @@ setMethod("computeVar", "PointProcessModel",
                      model@var <- varMatrix[i, i, drop = FALSE]
                    },
                    none = {
-                     model@var <- matrix(0, length(coefficients(model)),
-                                         length(coefficients(model)))
+                     vcov <- matrix(0, length(coefficients(model)),
+                                    length(coefficients(model)))
+                     rownames(vcov) <- names(model@coefficients)
+                     colnames(vcov) <- names(model@coefficients)
+                     model@var <- vcov
                    },
                    lsSandwich = {
-                     X <- ppstat:::getModelMatrix(model)
+                     ## TODO: Find a correct way to compute estimates of standard errors.
+                     X <- getModelMatrix(model)
                      points <- getPointPointer(processData(model),
-                                                      ppstat:::response(model))
+                                               response(model))
                      vcov <- matrix(0, nrow = dim(X)[2], ncol = dim(X)[2])
                      fixed <- model@fixedCoefficients
                      if(length(fixed) == 0) {
-                       Iinv <- crossprod(sqrt(model@delta) * X)
+                       II <- crossprod(sqrt(model@delta) * X)
                        K <- crossprod(X[points, ])
+                       if(model@penalization)
+                         II <- II + 2*model@Omega
                      } else {
-                       Iinv <- crossprod(sqrt(model@delta) * X[, -fixed$which])
+                       II <- crossprod(sqrt(model@delta) * X[, -fixed$which])
                        K <- crossprod(X[points, -fixed$which])
+                       if(model@penalization)
+                         II <- II + 2*model@Omega[-fixed$which, -fixed$which]
                      }                       
-                     Iinv <- try(solve(Iinv), silent = TRUE)
-                     if(class(Iinv) == "try-error") 
+                     Iinv <- try(solve(II), silent = TRUE)
+                     if(class(Iinv) == "try-error") {
                        message("Model matrix not of full column rank:\n", Iinv[1], " Check parameterization.")
-                     vcov <- as(Iinv %*% K %*% Iinv, "matrix") ### Sandwich estimator
-                     rownames(vcov) <- names(model@coefficients)
-                     colnames(vcov) <- names(model@coefficients)
+                     } else {
+                       vcov <- as(Iinv %*% K %*% Iinv, "matrix") ### Sandwich estimator
+                       rownames(vcov) <- names(model@coefficients)
+                       colnames(vcov) <- names(model@coefficients)
+                     }
+                       model@var <- vcov
+                   },
+                   lasso = {
+                     ## TODO: Find a correct way to compute estimates of standard errors.
+                     X <- getModelMatrix(model)
+                     points <- getPointPointer(processData(model),
+                                               response(model))
+                     vcov <- matrix(0, nrow = dim(X)[2], ncol = dim(X)[2])
+                     switch(family(model)@link,
+                            identity = {
+                              II <- crossprod(sqrt(model@delta) * X)
+                            },
+                            log = {
+                              II <- computeDDMinusLogLikelihood(model)
+                            },
+                            II <- diag(1, dim(vcov))
+                            )
+                     if(model@penalization)
+                       II <- II + 2*model@Omega
+                     K <- crossprod(X[points, ])
+                     nonZeroCoef <- coefficients(model) != 0
+                     K <- K[nonZeroCoef, nonZeroCoef]
+                     II <- II[nonZeroCoef, nonZeroCoef]
+                     Iinv <- try(solve(II), silent = TRUE)
+                     if(class(Iinv) == "try-error") {
+                       message("Model matrix not of full column rank:\n", Iinv[1], " Check parameterization.")
+                     } else {
+                       vcov[nonZeroCoef, nonZeroCoef] <- as(Iinv %*% K %*% Iinv, "matrix") ### Sandwich estimator                         
+                       rownames(vcov) <- names(model@coefficients)
+                       colnames(vcov) <- names(model@coefficients)
+                     }
                      model@var <- vcov
                    },
                    Fisher = {
@@ -1043,48 +1086,73 @@ setMethod("iwlsFit", "PointProcessModel",
           )
 
 setMethod("glmnetFit", "PointProcessModel",
-          function(model, control = list(), refit = FALSE, ...) {
+          function(model, control = list(), refit = FALSE, ...) {          
             hasGlmnet <- require("glmnet")
             if(!hasGlmnet) {
               stop("Package 'glmnet' is not installed.")
             } else {
-              offset <- log(model@delta)
-              weights <- rep(1, length(offset))
-              weights[offset == -Inf] <- 0
-              offset[offset == -Inf] <- 0
-              y <- rep(0, length(offset))
-              y[getPointPointer(processData(model), ppstat:::response(model))] <- 1
-              ## TODO: How do we automatically compute a lambda sequence
-              ##              lambda <- exp(seq(-4, -15, -0.1))
+              link <- family(model)@link
+              
+              intercept <- which(getAssign(model) == 0)
+              if(length(intercept) == 0) {
+                warning("Model has no intercept. Currently, using 'glmnet' the lasso penalized mode is fitted with an intercept.")
+                X <- getModelMatrix(model)
+              } else if(length(intercept) > 1) {
+                stop("Internal error: Multiple intercept columns in model matrix")
+              } else {
+                X <- getModelMatrix(model)[, -intercept]
+              }
 
-              glmnetFit <- glmnet(x = ppstat:::getModelMatrix(model),
-                                  y = y,
-                                  family = "poisson",
-                                  offset = offset,
-                                  weights = weights,
-                                  standardize = FALSE,
-                                  alpha = 1)
-              browser()
-              coef <- coefficients(glmnetFit)
-              mll <- sapply(seq(1, dim(coef)[2]),
-                            function(i) {
-                              computeMinusLogLikelihood(testModel, coef[ ,i])
-                            }
-                            )
-              
-              coefficients(model) <- coefficients(glmnetFit, "lambda.min")[, 1]
-              nzCoef <- tapply(coefficients(model),
-                               ppstat:::getAssign(model),
-                               function(x) any(x != 0)
-                               )
-              
-              nzCoef <- which(nzCoef[names(nzCoef) != "0"])
-              
-              zc <- which(coefficients(model) == 0)
-              model@fixedCoefficients <- list(which = zc,
-                                              values = rep(0, length(zc)))
-              model <- update(model, nzCoef, fit = refit)
-              model <- ppstat:::computeVar(model)
+              y <- rep(0, dim(X)[1])
+              weights <- rep(1, dim(X)[1])
+              points <- getPointPointer(processData(model), response(model))
+                            
+              if (link == 'log')
+                {
+                  y[points] <- 1
+                  offset <- log(model@delta)
+                  weights[offset == -Inf] <- 0
+                  offset[offset == -Inf] <- 0
+                  
+                  glmnetFit <- glmnet(x = X,
+                                      y = y,
+                                      family = "poisson",
+                                      offset = offset,
+                                      weights = weights,
+                                      standardize = FALSE,
+                                      alpha = 1)
+                } else if (link == 'identity')
+                  {
+                    weights <- model@delta
+                    y[points] <- 1/weights[points]
+                    penaltyWeights <- sqrt(colSums(X[points, ]^2))
+                    penaltyWeights <- pmax(penaltyWeights, 1)
+                    glmnetFit <- glmnet(x = X,
+                                        y = y,
+                                        family = "gaussian",
+                                        weights = weights,
+                                        standardize = FALSE,
+                                        penalty.factor = penaltyWeights,
+                                        alpha = 1)
+
+                  }
+
+              ## An AIC-type of criteria - ad hoc.
+              err <- (1 - glmnetFit$dev.ratio) * glmnetFit$nulldev
+              if (link == 'log') {
+                selected <- which.min(2*glmnetFit$df + err)
+              } else if(link == 'identity') {
+                ## TODO: Using the estimated sigmasq this way is very, very ad hoc!
+                m <- length(err)
+                sigmasqHat <- err[m]/(dim(X)[1] - glmnetFit$df[m])
+                selected <- which.min(2*glmnetFit$df*sigmasqHat + err)
+              }
+            coefficients(model) <- coefficients(glmnetFit)[, selected]
+
+              if(model@varMethod != "none")
+                model@varMethod <- "none"
+###             model@varMethod <- "lasso"
+               model <- computeVar(model)
               
               optimResult <- list(value = computeMinusLogLikelihood(model),
                                   counts = c(glmnetFit$npasses, 0),
@@ -1099,12 +1167,12 @@ setMethod("glmnetFit", "PointProcessModel",
 setMethod("lsFit", "PointProcessModel",
           function(model, control = list(), ...) {
 
-            if(model@family@link == "identity") {
+            if(family(model)@link == "identity") {
               if(model@varMethod != "none")
                 model@varMethod <- "lsSandwich"
               fixedPar <- model@fixedCoefficients
               w <- sqrt(model@delta)
-              X <- w * ppstat:::getModelMatrix(model)
+              X <- w * getModelMatrix(model)
               y <- rep(0, dim(X)[1])
               if (model@penalization) {
                 if (length(fixedPar) == 0) {
@@ -1114,19 +1182,18 @@ setMethod("lsFit", "PointProcessModel",
                   Omega <- model@Omega[-fixedPar$which, -fixedPar$which]
                 }
                 OmegaSVD <- svd(Omega, 0)
-                L <- Matrix(sqrt(OmegaSVD$d) * OmegaSVD$v)
+                L <- Matrix(sqrt(OmegaSVD$d) * t(OmegaSVD$v))
                 y <- c(y, rep(0, dim(Omega)[1]))
                 X <- rBind(X, L)
               }
-              points <- getPointPointer(processData(model), ppstat:::response(model))
+              points <- getPointPointer(processData(model), response(model))
               y[points] <- 1/w[points]
               if (length(fixedPar) == 0) {
-                model@coefficients <- MatrixModels:::lm.fit.sparse(X, 
-                                                                   y)
+                model@coefficients <- MatrixModels:::lm.fit.sparse(X, y)
               }
               else {
-                model@coefficients[-fixedPar$which] <- MatrixModels:::lm.fit.sparse(X[, 
-                                                                                      -fixedPar$which], y)
+                model@coefficients[-fixedPar$which] <-
+                  MatrixModels:::lm.fit.sparse(X[, -fixedPar$which], y)
                 model@coefficients[fixedPar$which] <- fixedPar$value
               }
               names(model@coefficients) <- dimnames(X)[[2]]
@@ -1148,39 +1215,51 @@ setMethod("glmFit", "PointProcessModel",
             weights[offset == -Inf] <- 0
             offset[offset == -Inf] <- 0
             y <- rep(0, length(offset))
-            y[getPointPointer(processData(model), ppstat:::response(model))] <- 1
-            glmFit <- glm.fit(x = as(ppstat:::getModelMatrix(model), "matrix"),
-                              y = y,
-                              family = poisson(),
-                              offset = offset,
-                              weights = weights,
-                              control = control)
+            points <- getPointPointer(processData(model), response(model))
+            y[points] <- 1
+
+            link <- family(model)@link
+
+            if (!link %in% c('log', 'identity', 'sqrt')) {
+              warning(paste("Link function",
+                            link,
+                            "not supported using 'optim' method 'poisson'.")
+                      )
+            } else {
+              glmFit <- glm.fit(x = as(getModelMatrix(model), "matrix"),
+                                y = y,
+                                family = poisson(link),
+                                offset = offset,
+                                weights = weights,
+                                control = control
+                                )
             
-            coefficients(model) <- glmFit$coefficients
-            
-            if(isTRUE(glmFit$converged)) {
+              coefficients(model) <- glmFit$coefficients
+              
+              if(isTRUE(glmFit$converged)) {
                 convergence <- 0
               } else {
                 convergence <- glmFit$converged
               }
-            
-            optimResult <- list(value = computeMinusLogLikelihood(model),
-                                counts = c(glmFit$iter, 0),
-                                convergence = convergence
-                                )
-            model@optimResult <- optimResult
-            
+              
+              optimResult <- list(value = computeMinusLogLikelihood(model),
+                                  counts = c(glmFit$iter, 0),
+                                  convergence = convergence
+                                  )
+              model@optimResult <- optimResult
+            }
             return(model)
           }
           )
           
 
-setMethod("print","PointProcessModel",
+setMethod("print", "PointProcessModel",
           function(x, digits = max(3, getOption("digits") - 3), ...){
             cat("\nCall:\n", deparse(x@call), "\n\n", sep = "")
             if (length(coefficients(x))) {
               cat("Coefficients:\n")
-              print.default(format(coefficients(x), digits = digits), print.gap = 2, 
+              print.default(format(coefficients(x), digits = digits),
+                            print.gap = 2, 
                             quote = FALSE)
             }
             else cat("No coefficients\n")
