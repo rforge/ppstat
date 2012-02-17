@@ -110,8 +110,12 @@ pointProcessModel <- function(
                                )
   }
   
-  if(missing(coefficients))
+  if(missing(coefficients)) {
     coefficients <- .Machine$double.eps
+    selfStart <- TRUE
+  } else {
+    selfStart <- FALSE
+  }
   
   if(length(fixedCoefficients) != 0)
     coefficients[fixedCoefficients$which] <- fixedCoefficients$value
@@ -139,13 +143,14 @@ pointProcessModel <- function(
   }
 
   if(fit) {
-    model <- ppmFit(model, ...)
+    model <- ppmFit(model, selfStart = selfStart, ...)
   } else {
-    model <- computeVar(model, method = "none")
-##  TODO: correct to work with multivariate models
-##    model@optimResult <- list(value = computeMinusLogLikelihood(model),
-##                              counts = c(0, 0),
-##                              convergence = NA)
+    ## Initializing the variance matrix without computing it.
+    model <- computeVar(model, method = "none")  
+    ##  TODO: correct to work with multivariate models
+    ##    model@optimResult <- list(value = computeMinusLogLikelihood(model),
+    ##                              counts = c(0, 0),
+    ##                              convergence = NA)
   }
   
   return(model)
@@ -906,7 +911,20 @@ setMethod("termPlot", "PointProcessModel",
           )
 
 setMethod("ppmFit", "PointProcessModel",
-          function(model, control = list(), optim = 'optim', ...) {
+          function(model, control = list(), optim = 'optim', selfStart = FALSE, ...) {
+            link <- family(model)@link
+            if(optim == 'ls' && link != 'identity')
+              stop("The optim method 'ls' is only supported with the 'identity' link function.")
+            
+            if(optim == 'glmnet' && !link %in% c('identity', 'log'))
+              stop("The optim method 'poisson' is only supported with the 'identity' or 'log' link function.")
+            
+            if(optim == 'poisson' && !link %in% c('log', 'identity', 'sqrt')) 
+              stop("The optim method 'poisson' is only supported with the 'identity', 'log' or 'sqrt' link function.")
+            
+            if(selfStart && (link == "identity" || link == "root"))
+              model <- lsFit(model = model, control = control, ...)
+            
             model <- switch(optim,
                             optim = optimFit(model = model, control = control, ...),
                             iwls = iwlsFit(model = model, control = control, ...),
@@ -976,16 +994,17 @@ setMethod("optimFit", "PointProcessModel",
               }
             } else {
               if(length(fixedPar) == 0) {
-                mll <- function(par,...) computeMinusLogLikelihood(model,par,...) + par %*% Omega %*% par
-                dmll <- function(par,...) computeDMinusLogLikelihood(model,par,...) + 2*par %*% Omega
+                mll <- function(par,...) computeMinusLogLikelihood(model,par,...) + as.numeric(par %*% Omega %*% par)
+                dmll <- function(par,...) computeDMinusLogLikelihood(model,par,...) + 2*as.numeric(par %*% Omega)
               } else {
                 mll <- function(par,...) {
+                  Omega <- Omega[-fixedPar$which,-fixedPar$which]
                   tmpPar[-fixedPar$which] <- par
-                  computeMinusLogLikelihood(model,tmpPar,...) + par %*% Omega[-fixedPar$which,-fixedPar$which] %*% par
+                  computeMinusLogLikelihood(model,tmpPar,...) + as.numeric(par %*% Omega %*% par)
                 }
                 dmll <- function(par,...) {
                   tmpPar[-fixedPar$which] <- par
-                  computeDMinusLogLikelihood(model,tmpPar,...)[-fixedPar$which] + 2*par %*% Omega[-fixedPar$which,-fixedPar$which]
+                  computeDMinusLogLikelihood(model,tmpPar,...)[-fixedPar$which] + 2*as.numeric(par %*% Omega)
                 }
               }
             }
@@ -1086,7 +1105,7 @@ setMethod("iwlsFit", "PointProcessModel",
           )
 
 setMethod("glmnetFit", "PointProcessModel",
-          function(model, control = list(), refit = FALSE, ...) {          
+          function(model, control = list(), ...) {          
             hasGlmnet <- require("glmnet")
             if(!hasGlmnet) {
               stop("Package 'glmnet' is not installed.")
@@ -1095,7 +1114,7 @@ setMethod("glmnetFit", "PointProcessModel",
               
               intercept <- which(getAssign(model) == 0)
               if(length(intercept) == 0) {
-                warning("Model has no intercept. Currently, using 'glmnet' the lasso penalized mode is fitted with an intercept.")
+                warning("Model has no intercept. Currently, using 'glmnet' the lasso penalized model is fitted with an intercept.")
                 X <- getModelMatrix(model)
               } else if(length(intercept) > 1) {
                 stop("Internal error: Multiple intercept columns in model matrix")
@@ -1137,22 +1156,22 @@ setMethod("glmnetFit", "PointProcessModel",
 
                   }
 
-              ## An AIC-type of criteria - ad hoc.
+              ## An AIC-type of criteriaon - ad hoc.
               err <- (1 - glmnetFit$dev.ratio) * glmnetFit$nulldev
               if (link == 'log') {
                 selected <- which.min(2*glmnetFit$df + err)
-              } else if(link == 'identity') {
+              } else if (link == 'identity') {
                 ## TODO: Using the estimated sigmasq this way is very, very ad hoc!
                 m <- length(err)
                 sigmasqHat <- err[m]/(dim(X)[1] - glmnetFit$df[m])
                 selected <- which.min(2*glmnetFit$df*sigmasqHat + err)
               }
-            coefficients(model) <- coefficients(glmnetFit)[, selected]
-
+              coefficients(model) <- coefficients(glmnetFit)[, selected]
+              
               if(model@varMethod != "none")
                 model@varMethod <- "none"
 ###             model@varMethod <- "lasso"
-               model <- computeVar(model)
+              model <- computeVar(model)
               
               optimResult <- list(value = computeMinusLogLikelihood(model),
                                   counts = c(glmnetFit$npasses, 0),
@@ -1167,43 +1186,40 @@ setMethod("glmnetFit", "PointProcessModel",
 setMethod("lsFit", "PointProcessModel",
           function(model, control = list(), ...) {
 
-            if(family(model)@link == "identity") {
-              if(model@varMethod != "none")
-                model@varMethod <- "lsSandwich"
-              fixedPar <- model@fixedCoefficients
-              w <- sqrt(model@delta)
-              X <- w * getModelMatrix(model)
-              y <- rep(0, dim(X)[1])
-              if (model@penalization) {
-                if (length(fixedPar) == 0) {
-                  Omega <- model@Omega
-                }
-                else {
-                  Omega <- model@Omega[-fixedPar$which, -fixedPar$which]
-                }
-                OmegaSVD <- svd(Omega, 0)
-                L <- Matrix(sqrt(OmegaSVD$d) * t(OmegaSVD$v))
-                y <- c(y, rep(0, dim(Omega)[1]))
-                X <- rBind(X, L)
-              }
-              points <- getPointPointer(processData(model), response(model))
-              y[points] <- 1/w[points]
+            if(model@varMethod != "none")
+              model@varMethod <- "lsSandwich"
+            fixedPar <- model@fixedCoefficients
+            w <- sqrt(model@delta)
+            X <- w * getModelMatrix(model)
+            y <- rep(0, dim(X)[1])
+            if (model@penalization) {
               if (length(fixedPar) == 0) {
-                model@coefficients <- MatrixModels:::lm.fit.sparse(X, y)
+                Omega <- model@Omega
               }
               else {
-                model@coefficients[-fixedPar$which] <-
-                  MatrixModels:::lm.fit.sparse(X[, -fixedPar$which], y)
-                model@coefficients[fixedPar$which] <- fixedPar$value
+                Omega <- model@Omega[-fixedPar$which, -fixedPar$which]
               }
-              names(model@coefficients) <- dimnames(X)[[2]]
-              model@optimResult <- list(value = computeMinusLogLikelihood(model),
-                                        counts = c(1, 0),
-                                        convergence = 0
-                                        )
-            } else {
-              stop("Use of 'lsFit' only supported with the identity link function.")
+              OmegaSVD <- svd(Omega, 0)
+              L <- Matrix(sqrt(OmegaSVD$d) * t(OmegaSVD$v))
+              y <- c(y, rep(0, dim(Omega)[1]))
+              X <- rBind(X, L)
             }
+            points <- getPointPointer(processData(model), response(model))
+            y[points] <- 1/w[points]
+            if (length(fixedPar) == 0) {
+              model@coefficients <- MatrixModels:::lm.fit.sparse(X, y)
+            }
+            else {
+              model@coefficients[-fixedPar$which] <-
+                MatrixModels:::lm.fit.sparse(X[, -fixedPar$which], y)
+              model@coefficients[fixedPar$which] <- fixedPar$value
+            }
+            names(model@coefficients) <- dimnames(X)[[2]]
+            model@optimResult <- list(value = computeMinusLogLikelihood(model),
+                                      counts = c(1, 0),
+                                      convergence = 0
+                                      )
+            
             return(model)
           }
           )
@@ -1220,34 +1236,28 @@ setMethod("glmFit", "PointProcessModel",
 
             link <- family(model)@link
 
-            if (!link %in% c('log', 'identity', 'sqrt')) {
-              warning(paste("Link function",
-                            link,
-                            "not supported using 'optim' method 'poisson'.")
-                      )
-            } else {
-              glmFit <- glm.fit(x = as(getModelMatrix(model), "matrix"),
-                                y = y,
-                                family = poisson(link),
-                                offset = offset,
-                                weights = weights,
-                                control = control
-                                )
+            glmFit <- glm.fit(x = as(getModelMatrix(model), "matrix"),
+                              y = y,
+                              family = poisson(link),
+                              offset = offset,
+                              weights = weights,
+                              control = control
+                              )
             
-              coefficients(model) <- glmFit$coefficients
-              
-              if(isTRUE(glmFit$converged)) {
-                convergence <- 0
-              } else {
-                convergence <- glmFit$converged
-              }
-              
-              optimResult <- list(value = computeMinusLogLikelihood(model),
-                                  counts = c(glmFit$iter, 0),
-                                  convergence = convergence
-                                  )
-              model@optimResult <- optimResult
+            coefficients(model) <- glmFit$coefficients
+            
+            if(isTRUE(glmFit$converged)) {
+              convergence <- 0
+            } else {
+              convergence <- glmFit$converged
             }
+            
+            optimResult <- list(value = computeMinusLogLikelihood(model),
+                                counts = c(glmFit$iter, 0),
+                                convergence = convergence
+                                )
+            model@optimResult <- optimResult
+            
             return(model)
           }
           )

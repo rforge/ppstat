@@ -33,7 +33,7 @@ pointProcessSmooth(formula, data, family, support, lambda = 1,
   basisEnv, ...)
 
 \S4method{ppmFit}{PointProcessModel}(model, control = list(),
-optim = 'optim', ...)
+optim = 'optim', selfStart = FALSE, ...)
 
 \S4method{ppmFit}{MultivariatePointProcess}(model, control = list(), ...)
 
@@ -119,7 +119,12 @@ optim = 'optim', ...)
   method. The default is \code{'optim'}. Other possibilities are
   \code{'poisson'}, \code{'glmnet'}, \code{'iwls'} and \code{'ls'}. See
   details below for a description.}
-  
+
+  \item{selfStart}{a \code{logical} specifying if the fitting procedure
+  should compute a preliminary estimate before the actual
+  optimization. Default is \code{FALSE} which means that \code{ppmFit}
+  uses the current model parameters as starting values.}
+
   \item{\dots}{additional parameters that are passed on to \code{ppmFit}
     or the optimization algorithm, e.g. \code{optim}.}
   

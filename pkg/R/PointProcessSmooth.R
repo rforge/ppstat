@@ -85,7 +85,10 @@ pointProcessSmooth <- function(
     penCoef <- which(getAssign(model) == specialTerms[i])
     d <- length(penCoef)
     s1 <- s2 <- s3 <- s4 <- numeric(d)
-    s <-  .Fortran("sgram", as.double(s1), as.double(s2), as.double(s3), as.double(s4), as.double(knots[[specialTerms[i]]]), as.integer(d))
+    s <-  .Fortran("sgram", as.double(s1), as.double(s2),
+                   as.double(s3), as.double(s4),
+                   as.double(knots[[specialTerms[i]]]),
+                   as.integer(d))
     pen <- matrix(0, d, d)
     diag(pen) <- s[[1]]
     pen[seq(2,d*d,d+1)] <- pen[seq(d+1,d*d,d+1)] <- s[[2]][1:(d-1)]
@@ -97,8 +100,12 @@ pointProcessSmooth <- function(
   model@Omega <- lambda*Omega
   model@penalization <- TRUE
   
-  if(fit) 
-    model <- ppmFit(model, ...)
+  if(fit) {
+    model <- ppmFit(model, selfStart = TRUE, ...)
+  } else {
+    ## Initializing the variance matrix without computing it.
+    model <- computeVar(model, method = "none")
+  }
   
   model@call <- call
   model <- as(model, "PointProcessSmooth")
