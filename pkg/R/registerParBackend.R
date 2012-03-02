@@ -10,7 +10,7 @@ registerParBackend <- function(backend = 'mc', cores = NULL) {
         if(!is.null(cores))
           options(cores = cores)
         
-        assign("lapplyParallel", mclapply, .ppstatGlobals)
+        assign("lapplyParallel", parallel:::mclapply, .ppstatGlobals)
         assign("backend", "mc", .ppstatGlobals)
         message("Registering 'mclapply' from package multicore as parallel backend\n for ppstat.")
         if(identical(getOption("device"), quartz)) {
