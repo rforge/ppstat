@@ -2,8 +2,6 @@ useDynLib(ppstat, .registration = TRUE)
 
 import(Matrix)
 
-import(MatrixModels)
-
 importFrom("splines",
            splineDesign)
        
@@ -11,6 +9,9 @@ importFrom("stats",
            family,
            predict,
            vcov)
+
+importFrom("processdata",
+           "subset")
            
 exportClasses(Family,
               PointProcess,
@@ -33,22 +34,22 @@ export(bSpline,
 S3method(print,
          summary.ppm)
 
-exportMethods(coefficients,
+exportMethods("coefficients",
               "coefficients<-",
-              computeMinusLogLikelihood,
-              computeDMinusLogLikelihood,
-              computeDDMinusLogLikelihood,
-              family,
-              formula,
-              getLocalIndependenceGraph,
-              getInformation,
-              getLinearFilter,
-              predict,
-              ppmFit,
-              processData,
-              stepInformation,
-              subset,
-              summary,
-              termPlot,
-              update,
-              vcov)
+              "computeMinusLogLikelihood",
+              "computeDMinusLogLikelihood",
+              "computeDDMinusLogLikelihood",
+              "family",
+              "formula",
+              "getLocalIndependenceGraph",
+              "getInformation",
+              "getLinearFilter",
+              "predict",
+              "ppmFit",
+              "processData",
+              "stepInformation",
+              "subset",
+              "summary",
+              "termPlot",
+              "update",
+              "vcov")
