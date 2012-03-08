@@ -25,7 +25,7 @@ setMethod("initialize", "Family",
         )
 
 Hawkes <- function(link = "root", ...) {
-  return(new("Family", "Hawkes",link = link,...))
+  return(new("Family", "Hawkes", link = link,...))
 }
 
 Gibbs <- function(link = "root", ...) {

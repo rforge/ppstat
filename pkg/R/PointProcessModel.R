@@ -164,8 +164,12 @@ setMethod("computeBasis", "PointProcessModel",
             ## Basis evaluations are computed if not
             ## already computed, locked and available in
             ## 'model@basisEnv$basis'.
+
+            basisComputed <- exists("basisComputed", model@basisEnv) &&
+            get("basisComputed", model@basisEnv)
             
-            if(!bindingIsLocked("basis", model@basisEnv)) {
+            if(!basisComputed) {
+##            if(!bindingIsLocked("basis", model@basisEnv)) {
               processData <- processData(model)
               DcontinuousVar <- paste(colnames(getValue(processData)), ".d", sep="")
               DpositionVar <- paste(processData@positionVar, ".d", sep="")
@@ -191,12 +195,19 @@ setMethod("computeBasis", "PointProcessModel",
                     form <- update(mt[i], ~ . -1)
                     x <- as.data.frame(model@basisPoints)
                     colnames(x) <- variable
-                    model@basisEnv$basis[[term]] <- model.matrix(form, x)
+                    mm <- model.matrix(form, x)
+                    ### The basis functions are renormalized to integrate to 1 numerically.
+                    if (variable %in% DcontinuousVar) {
+                      cs <- apply(mm, 2, sum) * model@Delta
+                      mm <- sweep(mm, 2, cs, "/")
+                    }
+                    model@basisEnv$basis[[term]] <- mm
                   }
                 }
               }
               setFilterTerms(model) <- filterTerms
-              lockBinding("basis", model@basisEnv)
+              assign("basisComputed", TRUE, model@basisEnv)
+##              lockBinding("basis", model@basisEnv)
             }
             return(model)
           }
@@ -502,7 +513,7 @@ setMethod("computeModelMatrix", "PointProcessModel",
                                              
                                              designList[[i]] <- Matrix(.Call(computeFilterMatrix,
                                                                              evalPositions[[i]],
-                                                                             getBasis(model,term),
+                                                                             getBasis(model, term),
                                                                              model@Delta,
                                                                              valuesi,
                                                                              zero,
@@ -819,6 +830,7 @@ setReplaceMethod("setBasis", c(model = "PointProcessModel", term = "character", 
                      model@basisEnv <- new.env(parent = emptyenv())
                    
                    model@basisEnv$basis[[term]] <- value
+                   assign("basisComputed", FALSE, model@basisEnv)                   
                    lockEnvironment(model@basisEnv)
                    
                    return(model)
@@ -829,8 +841,9 @@ setReplaceMethod("setBasis", c(model = "PointProcessModel", term = "ANY", value 
                  function(model, term, value){
                    if(environmentIsLocked(model@basisEnv))
                      model@basisEnv <- new.env(parent = emptyenv())
-                   
-                   model@basisEnv$basis <- value
+
+                   assign("basis", value, model@basisEnv)
+                   assign("basisComputed", FALSE, model@basisEnv)
                    lockEnvironment(model@basisEnv)
 
                    return(model)
@@ -1408,7 +1421,8 @@ setMethod("update", "PointProcessModel",
                 coefficients(object) <- rep(0, length(col))
               }
             } else {
-              unlockBinding("basis", object@basisEnv)
+              assign("basisComputed", FALSE, object@basisEnv)
+##              unlockBinding("basis", object@basisEnv)
               object <- computeModelMatrix(object)
               coefficients(object) <- rep(.Machine$double.eps,
                                           dim(getModelMatrix(object))[2])
