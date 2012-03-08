@@ -17,7 +17,7 @@
   given in terms of a linear predictor process; a linear combination of
   linear filters. The linear filters are specified through a symbolic
   description of the linear predictor process. The function
-  \code{ppmFit} does that actual fitting. 
+  \code{ppmFit} does the actual fitting. 
   
 }
 \usage{
@@ -143,9 +143,9 @@ optim = 'optim', selfStart = FALSE, ...)
 
   When calling \code{pointProcessModel} the three arguments
   \code{formula}, \code{data} and \code{family} must always be
-  specified. In addition, either the argument \code{support} (and
+  specified. In addition, a specification of the argument \code{support} (and
   optionally \code{N} or \code{Delta}) or the argument
-  \code{basisPoints} needs to be specified.
+  \code{basisPoints} should be considered.
 
   The \code{formula} specifies together with the \code{family} the
   conditional intensity for a point process in terms of the history of
@@ -192,7 +192,7 @@ optim = 'optim', selfStart = FALSE, ...)
     s_n}, and \code{f(M)} is a term in the formula, the corresponding
   linear filter 
 
-  \deqn{\sum_{i : t-s_i \in \mathrm{support}} f(t-s_i)}{sum_{i: t-s_i \in support} f(t-s_i)}
+  \deqn{\sum_{i : t-s_i \in \mathrm{support}} f(t-s_i)}{sum_{i: t-s_i in support} f(t-s_i)}
 
   then enters as a term in the linear predictor process.  Expansions of
   a filter function in terms of basis functions is possible, using
@@ -204,11 +204,11 @@ optim = 'optim', selfStart = FALSE, ...)
   an affine filter function can be obtained by including \code{I(const(M)
   + M)} in the formula.
 
-  As described above, there is a fundamental difference between the ways 
+  As described above, there is a fundamental difference in the ways that 
   a point process and a continuous process enter in the model
   specification. A continuous process enters \emph{as is}
   whereas a point process enters through a linear filter. This is
-  believed to be natural in most cases - the point history needs to be
+  considered to be natural in most cases - the point history needs to be
   aggregated through a linear filter before it enters in the
   specification of the conditional intensity, whereas it is the
   instantaneous value of the continuous process that determines the
@@ -219,12 +219,15 @@ optim = 'optim', selfStart = FALSE, ...)
   \code{f(V.d)} is a term in the formula, the corresponding
   linear filter 
 
-  \deqn{V_0 + \int_{\mathrm{support}} f(s) (V_{(t-s)-} - V_0) \mathrm{d}s
-  }{V(0) + int_{support} f(s) (V((t-s)-) - V(0))ds}
+  \deqn{\int_{\mathrm{support}} f(s) V_{(t-s)-} \mathrm{d}s
+  }{int_{support} f(s) V((t-s)-)ds}
 
   then enters as a term in the linear predictor process. As for point
   processes, the filter function can be expanded using any set of basis
-  functions.
+  functions. Currently, the implementation only supports causal
+  filters. Note that the specified filter functions are 
+  normalized to integrate, numerically, to 1 and that the process is
+  padded with its initial value to the left. 
 
   The left hand side of the formula can be a point process variable or a sum of
   point process variables, in which case a univariate point process model is

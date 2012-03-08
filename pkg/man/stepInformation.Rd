@@ -6,7 +6,7 @@
 \alias{getInformation,PointProcessModel-method}
 
 \title{
-  Stepwise point process model choice
+  Stepwise point process model selection
 }
 \description{
   Performs a stepwise, greedy model selection using an information criteria.
