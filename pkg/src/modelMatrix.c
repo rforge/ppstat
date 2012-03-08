@@ -98,7 +98,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
    */
 
   int i, j, k, nt, *nB, lookupIndexLeft, lookupIndexRight, entry, col;
-  double *xt, *xs, *xB, *xZ, *BB, d, w, xs0, diffLeft, epsilon;
+  double *xt, *xs, *xB, *xZ, *BB, d, eps;
   SEXP Z, BDIM;
 
   if(!isMatrix(B)) error("B must be a matrix when using computeModelMatrix.");
@@ -118,59 +118,44 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
   xs = REAL(s);
   xZ = REAL(Z);
 
-  BB = (double *) R_alloc(nB[0],sizeof(double));
+  BB = (double *) R_alloc(nB[0]+1, sizeof(double));
 
   d = REAL(delta)[0];
-  w = d*(nB[0]-1);
-  //This choice of epsilon is to make sure that certain floor commands 
+  //Adding "machine precision" makes the floor operations 
   //below return the desired integer even in borderline cases. 
-  epsilon = d/10;
+  eps = 2.220446e-16/d;
 
-  xs0 = xs[0];
-  for(i = 0; i < nt; i++) {
-    xs[i] -= xs0;
-  } 
-
-  //  printf("Inside function\n");
-  
   for(j = 0; j < nB[1]; j++) {
-    //printf("Inside outer loop. j: %d\n",j);
     col =  nB[0]*j;
-    xZ[nt*j] = xs0;
-    // Integration of basis functions, NOT NEEDED ANYWAY
-    // Observed process is forced 0 at zero above!
-    /*    BB[0] = 0;
-	  for(i = 1; i < nB[0]; i++) {
-	  BB[i] = BB[i-1] + d*xB[i];
-	  }
-    */
-    // Computation of filter basis
+    xZ[nt*j] = 0;
+    // Integration of basis functions
+    BB[nB[0]] = 0; 
+    for(i = nB[0]-1; i >= 0; i--) 
+      BB[i] = BB[i+1] + d*xB[i + col];
+      
+    // Computation of filter basis 
     for(i = 1; i < nt; i++) {
-      //printf("Inside inner loop. i: %d\n",i);
       entry = i + nt*j; 
       k = i-1;
-      diffLeft = xt[i] - xt[k];
-      lookupIndexLeft = floor(diffLeft/d + epsilon);
-      xZ[entry] = xB[lookupIndexLeft + col]*xs[k]*diffLeft;
-      lookupIndexRight = floor(diffLeft/d+epsilon);
-      k--;
-      // printf("k: %d  diffLeft: %4.2f\n",k,diffLeft);
-      while(k >= 0 && (diffLeft = xt[i] - xt[k]) <= w) 
+      xZ[entry] = 0;
+      lookupIndexRight = 0;
+      while(k >= 0 && (lookupIndexLeft = floor((xt[i] - xt[k] + eps)/d)) <= nB[0])
 	{ 
-	    lookupIndexLeft = floor(diffLeft/d+epsilon);
-	    // This implementation of numerical integration uses a trapzoidal
-	    // rule for the filter function but the left value for the process.
-	    // The idea is to mimic 'predictability' and not anticipate 
-	    // (numerically) a jump if the process is e.g. a counting process. 
-	    xZ[entry] += (xB[lookupIndexLeft + col] + xB[lookupIndexRight + col])*xs[k]*(xt[k+1]-xt[k])/2;
-	    lookupIndexRight = lookupIndexLeft;
-	    k--;
-	  }
-      xZ[entry] += xs0;
+	  xZ[entry] += (BB[lookupIndexRight] - BB[lookupIndexLeft])*xs[k];
+	  lookupIndexRight = lookupIndexLeft;
+	  k--;
+	}
     }
+   
+    // Boundary
+    i = 0;
+    while(i < nt && (k = floor((xt[i] - xt[0] + eps)/d)) < nB[0]) 
+      {
+	xZ[i + nt*j] += BB[k]*xs[0];
+	i++;
+      }
   }
   
-
   UNPROTECT(6);
   return(Z);
 }
