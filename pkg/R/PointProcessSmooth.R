@@ -55,13 +55,12 @@ pointProcessSmooth <- function(
   
   knots <- list()
   fList <- list()
-  ## TODO: Clean this up! Ask on R-devel if there is
-  ## a problem with environments for functions ....
-  ## Is this simply lazy evaluation ... ?
+  
   termFunction <- function(knots) {
-    fknots <- knots
-    function(x) bSpline(x, knots = fknots)
+    force(knots)
+    function(x) bSpline(x, knots = knots)
   }
+
   for(i in seq_along(specialVar)) {
     x <- getPointPosition(data)[getMarkType(data) %in% response]
     y <- getPointPosition(data)[getMarkType(data) %in% specialVar[[i]]]

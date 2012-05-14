@@ -62,15 +62,18 @@ setMethod("getLocalIndependenceGraph", "MultivariatePointProcess",
 
 setMethod("termPlot", "MultivariatePointProcess",
           function(model, alpha = 0.05, layer = geom_line(), trans = NULL, ...) {
-            
-            if(all(sapply(model@models, function(m) length(getFilterTerms(m)) == 0))){
-              print("No filter function terms to plot")
+
+            noFilterModels <- sapply(model@models,
+                                     function(m) length(getFilterTerms(m)) == 0)
+            if(all(noFilterModels)){
+              print("No filter function terms to plot.")
               return(invisible())
             }
 
-            plotData <- lapply(model@models, function(model) {
+            plotData <- lapply(model@models[!noFilterModels], function(model) {
               pd <- getTermPlotData(model = model, alpha = alpha, trans = trans, ...)
-              pd$response <- do.call(function(...) paste(..., sep = "+"), as.list(response(model)))
+              pd$response <- do.call(function(...) paste(..., sep = "+"),
+                                     as.list(response(model)))
               return(pd)
             })
             plotData <- do.call(rbind, plotData)
@@ -80,8 +83,11 @@ setMethod("termPlot", "MultivariatePointProcess",
             ## response and regressor variables are in the same order
             ## in both sets and appear in the top right corner of the
             ## resulting plot.
+
+            responseLevels <- sapply(model@models, function(m) response(m))
             
-            plotData$response <- as.factor(plotData$response)
+            plotData$response <- factor(plotData$response,
+                                        levels = responseLevels)
             plotData$variable <- as.factor(plotData$variable)
             allLevels <- unique(c(levels(plotData$response), 
                                   levels(plotData$variable)))

@@ -40,7 +40,7 @@ setClass("PointProcessModel",
                         basisEnv = "environment",
                         
                         ## The 'basisPoints' contains the evaluation
-                        ## points for the basis functions.
+                        ## points (the grid) for the basis functions.
                         basisPoints = "numeric",
                         
                         coefficients = "numeric",
@@ -49,7 +49,7 @@ setClass("PointProcessModel",
                         
                         ## The 'active' columns. Set in update, used
                         ## in getModelMatrix and reset in
-                        ## computeModelMAtrix
+                        ## computeModelMatrix
                         modelMatrixCol = "numeric",
                         
                         ## The modelMatrix of class 'modelMatrix' is
