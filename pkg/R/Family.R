@@ -41,11 +41,10 @@ setMethod("family", "Family",
 makeLink <- function (link,c=0) 
 {
   switch(link, logit = {
-    linkfun <- function(mu) .Call("logit_link", mu, PACKAGE = "stats")
-    linkinv <- function(eta) .Call("logit_linkinv", eta, 
-                                   PACKAGE = "stats")
-    Dlinkinv <- function(eta) .Call("logit_mu_eta", eta, PACKAGE = "stats")
-    D2linkinv <- function(eta) .Call("logit_mu_eta", eta, PACKAGE = "stats")*(1-.Call("logit_linkinv", eta, PACKAGE = "stats"))
+    linkfun <-  binomial()$linkfun
+    linkinv <- binomial()$linkinv
+    Dlinkinv <- binomial()$mu.eta 
+    D2linkinv <- function(eta) Dlinkinv(eta)*(1 - 2*linkinv(eta))
     valideta <- function(eta) TRUE
   }, cloglog = {
     linkfun <- function(mu) log(-log(1 - mu))
