@@ -114,6 +114,15 @@ with $\circ$ the Hadamard (or coordinate-wise) matrix product and
 \end{eqnarray*}
 }
 
+The formulas above are used for generic computations, but one
+particular case can be somewhat simplified. If $\phi = \text{Id}$ is
+the identity function then  
+$$\Delta^T \phi\left( Z \theta \right) =  (\Delta^T Z) \theta$$
+and the $z = \Delta^T Z$ can be precomputed. This is similar
+to computing the time integrals of the $B_l$-basis functions
+\emph{before} the expansion of the linear filter. 
+
+
 \section{Algorithms for optimization}
 
 The BFGS and L-BFGS-B algorithms as implemented in R.
