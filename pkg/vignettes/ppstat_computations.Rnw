@@ -115,7 +115,7 @@ with $\circ$ the Hadamard (or coordinate-wise) matrix product and
 }
 
 The formulas above are used for generic computations, but one
-particular case can be somewhat simplified. If $\phi = \text{Id}$ is
+particular case can be somewhat simplified. If $\phi = \textnormal{Id}$ is
 the identity function then  
 $$\Delta^T \phi\left( Z \theta \right) =  (\Delta^T Z) \theta$$
 and the $z = \Delta^T Z$ can be precomputed. This is similar
