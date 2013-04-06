@@ -21,7 +21,8 @@ termPlot(toyPPM)
 ## Alternative analysis. The filter function is composed of two
 ## constant components.
 
-toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0, 1, 2)),
+toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0, 1, 2),
+                                       include.lowest = TRUE),
                             data = toyData,
                             family = Hawkes(),
                             support = 2,
@@ -29,10 +30,10 @@ toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0, 1, 2)),
 summary(toyPPM)
 termPlot(toyPPM)
 
-## Use of I() is required to make constructs like (ALPHA < 1) work
+## Use of I() is required to make constructs like (ALPHA <= 1) work
 ## correctly!
 
-toyPPM <- pointProcessModel(BETA ~ I(ALPHA < 1),
+toyPPM <- pointProcessModel(BETA ~ I(ALPHA <= 1),
                             data = toyData,
                             family = Hawkes(),
                             support = 2,
@@ -41,11 +42,11 @@ summary(toyPPM)
 termPlot(toyPPM)
 
 ## But the behavior above is perhaps not as expected. The result is a
-## model equivalent to the model using 'cut(ALPHA, c(0,1,2))'. To get
-## the indicator function for the interval (0,1), use the formula
+## model equivalent to the model using 'cut' above. To get
+## the indicator function for the interval [0,1], use the formula
 ## below.
 
-toyPPM <- pointProcessModel(BETA ~ as.numeric(ALPHA < 1),
+toyPPM <- pointProcessModel(BETA ~ as.numeric(ALPHA <= 1),
                             family = Hawkes(),
                             data = toyData,
                             support = 2,
@@ -107,7 +108,7 @@ termPlot(toyPPM)
 ## expansion at 0.
 
 toyPPM <- pointProcessModel(BETA ~ bSpline(BETA, knots = seq(-3, 3, 1), trunc = 0) +
-                            bSpline(ALPHA, knots = seq(-3, 3, 1, trunc = c(-2, 2))),
+                            bSpline(ALPHA, knots = seq(-3, 3, 1), trunc = c(-2, 2)),
                             data = toyData,
                             family = Gibbs(),
                             support = c(-2, 2),
