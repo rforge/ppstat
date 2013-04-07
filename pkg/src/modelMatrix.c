@@ -98,7 +98,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
    */
 
   int i, j, k, nt, *nB, lookupIndexLeft, lookupIndexRight, entry, col;
-  double *xt, *xs, *xB, *xZ, *BB, d, eps;
+  double *xt, *xs, *xB, *xZ, *BB, d;
   SEXP Z, BDIM;
 
   if(!isMatrix(B)) error("B must be a matrix when using computeModelMatrix.");
@@ -121,10 +121,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
   BB = (double *) R_alloc(nB[0]+1, sizeof(double));
 
   d = REAL(delta)[0];
-  //Adding "machine precision" makes the floor operations 
-  //below return the desired integer even in borderline cases. 
-  eps = 2.220446e-16/d;
-
+  
   for(j = 0; j < nB[1]; j++) {
     col =  nB[0]*j;
     xZ[nt*j] = 0;
@@ -139,7 +136,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
       k = i-1;
       xZ[entry] = 0;
       lookupIndexRight = 0;
-      while(k >= 0 && (lookupIndexLeft = floor((xt[i] - xt[k] + eps)/d)) <= nB[0])
+      while(k >= 0 && (lookupIndexLeft = floor((xt[i] - xt[k])/d + 0.5)) <= nB[0])
 	{ 
 	  xZ[entry] += (BB[lookupIndexRight] - BB[lookupIndexLeft])*xs[k];
 	  lookupIndexRight = lookupIndexLeft;
@@ -149,7 +146,7 @@ SEXP computeContinuousProcessFilterMatrix(SEXP t, SEXP B, SEXP delta, SEXP s, SE
    
     // Boundary
     i = 0;
-    while(i < nt && (k = floor((xt[i] - xt[0] + eps)/d)) < nB[0]) 
+    while(i < nt && (k = floor((xt[i] - xt[0])/d + 0.5)) < nB[0]) 
       {
 	xZ[i + nt*j] += BB[k]*xs[0];
 	i++;
