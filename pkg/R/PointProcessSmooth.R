@@ -1,103 +1,61 @@
-pointProcessSmooth <- function(
-                               formula,
-                               data,
-                               family,
-                               support,
-                               lambda = 1,
-                               allKnots = FALSE,
-                               N = 200,
-                               Delta,
-                               basisPoints,
-                               coefficients,
-                               fixedCoefficients = list(),
-                               fit = TRUE,
-                               varMethod = 'Fisher',
-                               basisEnv,
-                               ...) {
+ppSmooth <- function(
+  formula,
+  data,
+  family,
+  support = 1,
+  knots = 'log',
+  N = 200,
+  Delta,
+  lambda,
+  coefficients,
+  fit = TRUE,
+  varMethod = 'Fisher',
+  ...) {
   
-  call <- match.call()
-  argList <- as.list(call)[-1]
-  argList$fit <- FALSE
-
-  if(missing(basisPoints))
-    {
-      if(!(missing(support)))
-        {
-          if(length(support) == 1)
-            support <- c(0,max(support[1],0))
-        } else {
-          stop("Must specify either 'support' or 'basisPoints'.")
-        }
-    } else {
-      support = range(basisPoints)
-    }
+  call <- sCall <- match.call()
+  sCall[[1]] <- quote(pointProcessModel)
+  sCall$fit <- sCall$modelMatrix <- FALSE
+  form <- eval(sCall$formula)
+  
   ### Construction of the basis expansions
   terms <- terms(formula, "s")
-  specials <- attr(terms, "specials")$s
-  specialVar <- lapply(as.list(attr(terms, "variables"))[1+specials], all.vars)
-  ## if(is.list(specialVar))
-  ##   stop("Wrong specification of some smoother term.")
-  ## if(length(specials) != length(specialVar))
-  ##   stop("Some smoother term is applied to more than one variable.")
-
   if(attr(terms, "response") == 0)
     stop("No response variable specified.") 
-
-  response <- all.vars(as.list(attr(terms, "variables"))[[1+attr(terms, "response")]])
+  
+  specials <- attr(terms, "specials")$s
+  smoothVar <- lapply(as.list(attr(terms, "variables"))[1 + specials], all.vars)
+  sCall$formula <- reformulate(sub("s\\(", "ppstat:::.__s__(", attr(terms, "term.labels")),
+                               response = terms[[2]])
   termLabels <- attr(terms, "term.labels")
-  specialTerms <- which(apply(attr(terms, "factor")[specials, , drop = FALSE] > 0, 2, any))
-
-  if(allKnots) {
-    strategy <- "all"
-  } else {
-    strategy <- "log"
+  smoothTerms <- which(apply(attr(terms, "factor")[specials, , drop = FALSE] > 0, 2, any))
+  model <- eval(sCall, parent.frame())
+  if (class(model) == "MultivariatePointProcess")
+    stop("Multivariate models currently not supported with 'ppSmooth'.")
+  names(model@basisEnv$basis) <- sub("ppstat:::.__s__\\(", "s(", 
+                                     names(model@basisEnv$basis))
+  formula(model) <- form
+  model <- as(model, "PointProcessSmooth")
+  model@smoothTerms <- smoothTerms
+  ## 'knots' is passed further on to 'computeBasis' as the knot-selection strategy.
+  model <- computeModelMatrix(model, strategy = knots)
+  
+  if (missing(coefficients))
+    coefficients <- .Machine$double.eps
+  coefficients(model) <- coefficients
+  nc <- length(coefficients(model))
+  rePar <- getAssign(model) %in% smoothTerms
+  Vlist <- lapply(model@basisEnv$basis[names(smoothTerms)], function(b) attr(b, "V"))
+  model@V <- Diagonal(nc)
+  model@V[rePar, rePar] <- bdiag(Vlist)
+  if (missing(lambda)) 
+    lambda <- 1
+  if (length(lambda) == 1) {
+    lamb <- unlist(sapply(Vlist, function(x) c(0, 0, rep(lambda, ncol(x) - 2))))
+    lambda <- rep(0, nc)
+    lambda[rePar] <- lamb
   }
   
-  knots <- list()
-  fList <- list()
-  
-  termFunction <- function(knots) {
-    force(knots)
-    function(x) bSpline(x, knots = knots)
-  }
-
-  for(i in seq_along(specialVar)) {
-    x <- getPointPosition(data)[getMarkType(data) %in% response]
-    y <- getPointPosition(data)[getMarkType(data) %in% specialVar[[i]]]
-    knots[[specialTerms[i]]] <- computeKnots(x, y, support, specialVar[[i]], strategy)
-    term <- paste("fList[[", specialTerms[i], "]](", specialVar[[i]], ")", sep = "")
-    fList[[specialTerms[i]]] <- termFunction(knots = knots[[specialTerms[i]]])
-    termLabels[specialTerms[i]] <- term
-  }
-  
-  formula <- paste(paste(response, collapse = "+"), "~", paste(termLabels, collapse = "+"), collapse = "")
-  if(attr(terms, "intercept") == 0)
-    formula <- paste(formula, "-1", collapse = "")
-  
-  argList$formula <- as.formula(formula)
-  
-  model <- do.call("pointProcessModel", argList)
-  ## TODO: Modify colnames for the model matrix. 
-  nrCoef <- dim(getModelMatrix(model))[2]
-  Omega <- matrix(0, ncol = nrCoef, nrow = nrCoef)
-  for(i in seq_along(specialTerms)) {
-    penCoef <- which(getAssign(model) == specialTerms[i])
-    d <- length(penCoef)
-    s1 <- s2 <- s3 <- s4 <- numeric(d)
-    s <-  .Fortran("sgram", as.double(s1), as.double(s2),
-                   as.double(s3), as.double(s4),
-                   as.double(knots[[specialTerms[i]]]),
-                   as.integer(d))
-    pen <- matrix(0, d, d)
-    diag(pen) <- s[[1]]
-    pen[seq(2,d*d,d+1)] <- pen[seq(d+1,d*d,d+1)] <- s[[2]][1:(d-1)]
-    pen[seq(3,d*(d-1),d+1)] <- pen[seq(2*d+1,d*d,d+1)] <- s[[3]][1:(d-2)]
-    pen[seq(4,d*(d-2),d+1)] <- pen[seq(3*d+1,d*d,d+1)] <- s[[4]][1:(d-3)]
-    Omega[penCoef, penCoef] <- pen
-    }
-
-  model@Omega <- lambda*Omega
-  model@penalization <- TRUE
+  penalty(model) <- lambda
   
   if(fit) {
     model <- ppmFit(model, selfStart = TRUE, ...)
@@ -107,11 +65,59 @@ pointProcessSmooth <- function(
   }
   
   model@call <- call
-  model <- as(model, "PointProcessSmooth")
   return(model)
 }
 
-computeKnots <- function(x, y, support, variables, strategy = "log", method = "s", ...) {
+setMethod("computeBasis", "PointProcessSmooth",
+          function(model, strategy = "log", ...) {
+            model <- callNextMethod()
+            
+            ## The basis for the smooth terms is
+            ## computed and stored in the basis environment. 
+            smoothTerms <- names(getSmoothTerms(model))
+            data <- processData(model)
+            terms <- terms(formula(model))
+            response <- all.vars(as.list(attr(terms, "variables"))[[1 + attr(terms, "response")]])
+            
+            if (length(smoothTerms) >= 1) {
+              x <- getPointPosition(data)[getMarkType(data) %in% response]
+              grid <- model@basisPoints
+            
+              for (i in seq_along(smoothTerms)) {
+                smoothVar <- all.vars(reformulate(smoothTerms[i]))
+                y <- getPointPosition(data)[getMarkType(data) %in% smoothVar]
+                knots <- computeKnots(x, y, model@support, strategy)
+                basis <- bSpline(grid, knots = knots)                
+                cs <- sqrt(apply(basis^2, 2, sum) * model@Delta)
+                basis <- sweep(basis, 2, cs, "/")
+                d <- ncol(basis)
+                basis <- cbind(model@basisEnv$basis[[smoothTerms[i]]], basis[, -c(1, d)])
+                colnames(basis) <- paste(smoothTerms[i], seq_len(d), sep = "")
+                model@basisEnv$basis[[smoothTerms[i]]] <- basis
+                s1 <- s2 <- s3 <- s4 <- numeric(d)
+                s <-  .Fortran("sgram", as.double(s1), as.double(s2),
+                               as.double(s3), as.double(s4),
+                               as.double(knots),
+                               as.integer(d))
+                Gram <- matrix(0, d, d)
+                diag(Gram) <- s[[1]] / cs^2
+                Gram[seq(2, d*d, d+1)] <- Gram[seq(d+1, d*d, d+1)] <- s[[2]][1:(d-1)] / (cs[1:(d-1)] * cs[2:d])
+                Gram[seq(3, d*(d-1), d+1)] <- Gram[seq(2*d+1, d*d, d+1)] <- s[[3]][1:(d-2)] / (cs[1:(d-2)] * cs[3:d])
+                Gram[seq(4, d*(d-2), d+1)] <- Gram[seq(3*d+1, d*d, d+1)] <- s[[4]][1:(d-3)] / (cs[1:(d-3)] * cs[4:d])
+                GramSpec <- eigen(Gram[2:(d-1), 2:(d-1)], symmetric = TRUE)
+                V <- diag(1, d)
+                V0 <- GramSpec$vectors 
+                specRatio <- GramSpec$values / GramSpec$values[d-2]
+                V[-c(1, 2), -c(1, 2)] <-  t(t(V0) / sqrt(specRatio))
+                colnames(V) <- colnames(model@basisEnv$basis[[smoothTerms[i]]])
+                attr(model@basisEnv$basis[[smoothTerms[i]]], "V") <- V 
+              }
+            }            
+            model
+          }
+)
+
+computeKnots <- function(x, y, support, strategy = "log", ...) {
   ## TODO: Implement this in C!?
   differences <- outer(x, y, '-')
   differences <- differences[differences > support[1] & differences < support[2]]
@@ -119,44 +125,119 @@ computeKnots <- function(x, y, support, variables, strategy = "log", method = "s
   ## TODO: Implement different strategies for "thinning". This one is taken from
   ## smooting.spline directly ...
   sknotl <- function(x, nk = "log")
-    {
-      ## if (!all.knots)
-      ## return reasonable sized knot sequence for INcreasing x[]:
-      n.kn <- function(n) {
-        ## Number of inner knots
-        if(n < 50L) n
-        else trunc({
-          a1 <- log( 50, 2)
-          a2 <- log(100, 2)
-          a3 <- log(140, 2)
-          a4 <- log(200, 2)
-          if	(n < 200L) 2^(a1+(a2-a1)*(n-50)/150)
-          else if (n < 800L) 2^(a2+(a3-a2)*(n-200)/600)
-          else if (n < 3200L)2^(a3+(a4-a3)*(n-800)/2400)
-          else  200 + (n-3200)^0.2
-        })
-      }
-      n <- length(x)
-      if(isTRUE(nk == "log")){
-        nk <- n.kn(n)
-      } else if(isTRUE(nk == "all")) {
-        nk <- n
-      } 
-      else if(!is.numeric(nk)) stop("'nknots' must be numeric <= n")
-      else if(nk > n)
-        stop("Cannot use more inner knots than unique 'x' values.")
-      c(rep(x[1L], 3L), x[seq.int(1, n, length.out= nk)], rep(x[n], 3L))
+  {
+    ## if (!all.knots)
+    ## return reasonable sized knot sequence for INcreasing x[]:
+    n.kn <- function(n) {
+      ## Number of inner knots
+      if(n < 50L) n
+      else trunc({
+        a1 <- log( 50, 2)
+        a2 <- log(100, 2)
+        a3 <- log(140, 2)
+        a4 <- log(200, 2)
+        if	(n < 200L) 2^(a1+(a2-a1)*(n-50)/150)
+        else if (n < 800L) 2^(a2+(a3-a2)*(n-200)/600)
+        else if (n < 3200L)2^(a3+(a4-a3)*(n-800)/2400)
+        else  200 + (n-3200)^0.2
+      })
     }
-  
+    n <- length(x)
+    if(isTRUE(nk == "log")) {
+      nk <- n.kn(sqrt(n))  ## This is modified from 'smoothing.spline'
+    } else if(isTRUE(nk == "all")) {
+      nk <- n
+    } 
+    if(!is.numeric(nk)) 
+      stop("'nknots' must be numeric <= n")
+    if(nk > n)
+      stop("Cannot use more inner knots than unique 'x' values.")
+    inner <- x[seq.int(1, n, length.out= nk)]
+    inner <- inner[-c(1, length(inner))]
+    c(rep(x[1L], 4L), inner, rep(x[n], 4L))
+  }
   knots <- sknotl(c(support[1], sort(differences), support[2]), nk = strategy) 
   return(knots)
 }
 
+setMethod("computeLinearPredictor", "PointProcessSmooth",
+          function(model, coefficients = NULL, ...) {
+            if (is.null(coefficients)) 
+              coefficients <- coefficients(model)
+            
+            as.numeric(getModelMatrix(model) %*% (model@V %*% coefficients))
+          }
+)
+
+setMethod("computeMinusLogLikelihood", "PointProcessSmooth",
+          function(model, coefficients = NULL, ...) {
+            callNextMethod(model = model, coefficients = coefficients, 
+                           fastIdentity = FALSE, ...)
+          }
+)
+
+setMethod("computeQuadraticContrast", "PointProcessSmooth",
+          function(model, coefficients = NULL,  ...) {
+            callNextMethod(model = model, coefficients = coefficients, 
+                           fastIdentity = FALSE, ...)
+          }
+)
+
+setMethod("computeDMinusLogLikelihood", "PointProcessSmooth",
+          function(model, coefficients = NULL, eta = NULL, ...) {
+            dmll <- callNextMethod(model = model, coefficients = coefficients, 
+                                   eta = eta, fastIdentity = FALSE, ...)
+            as.numeric(dmll %*% model@V)
+          }
+)
+
+setMethod("computeDDMinusLogLikelihood", "PointProcessSmooth",
+          function(model, coefficients = NULL, eta = NULL, ...) {
+            ddmll <- callNextMethod(model = model, coefficients = coefficients, 
+                                   eta = eta, fastIdentity = FALSE, ...)
+            as(crossprod(model@V, ddmll) %*% model@V, "matrix")
+          }
+)
+
+setMethod("computeFisherInformation", "PointProcessSmooth",
+          function(model, coefficients = NULL, eta = NULL, ...){
+            J <- callNextMethod()
+            as(crossprod(model@V, J) %*% model@V, "matrix")
+          }
+)
+
+setMethod("getBasis", c(model = "PointProcessSmooth", term = "ANY"),
+          function(model, term, rePar = FALSE, ...) {
+            if (missing(term)) {
+              basis <- model@basisEnv$basis
+            } else {
+              basis <- model@basisEnv$basis[[term]]
+              if (rePar) 
+                basis <- basis %*% attr(basis, "V")
+            }
+            basis
+          }
+)
+
+setMethod("getSmoothTerms", "PointProcessSmooth",
+          function(model, ...){
+            model@smoothTerms
+          }
+)
+
+## TODO: Implement update method.
+
+setMethod("update", "PointProcessSmooth",
+          function(object, ...) {
+           message("No 'update' method currently implemented for a 'PointProcessSmooth' object.")
+           object
+          }          
+)
+
 ## TODO: New summary function for an object of class 'PointProcessSmooth'.
-## TODO: New update function. Model matrix needs to be recomputed if we change response
 
 setMethod("summary", "PointProcessSmooth",
           function(object,...) {
             callNextMethod()
           }
-          )
+)
