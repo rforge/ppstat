@@ -498,3 +498,11 @@ setMethod("updateKernelMatrix", "PointProcessKernel",
             return(model)
           }
 )
+
+## TODO: New summary function for an object of class 'PointProcessKernel'.
+
+setMethod("summary", "PointProcessKernel",
+          function(object, ...) {
+            callNextMethod()
+          }
+)
