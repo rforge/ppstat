@@ -64,7 +64,7 @@ kernel = sobolevKernel, specThres = 1e-8, ...)
   \item{kernel}{a \code{function}. The reproducing kernel. Default value is 
   the \code{sobolevKernel}, which is the reproducing kernel for the (2, 2) Sobolev
   space. Any vectorized function that computes a positive definite matrix on a grid 
-  is allowed. 
+  (and take one additional parameter, see details) is allowed. 
   }
   
   \item{specThres}{a \code{numeric}. Determines the incompleteness of the factorization 
@@ -85,7 +85,10 @@ kernel = sobolevKernel, specThres = 1e-8, ...)
   
   Using the default kernel, the \code{sobolevKernel}, the resulting fit is almost 
   identical to that obtained by \code{ppSmooth}. The \code{gaussianKernel} is 
-  available as an alternative.
+  available as an alternative. All kernels are called with an additional argument 
+  \code{t = support[2]}, which for the two kernels mentioned rescales the support to
+  \eqn{[0,1]}. Hence a kernel should allow for such an argument even if it is 
+  ignored. 
   
   The kernel enters only through a Gram matrix computation on an \code{N} by \code{N} 
   grid, which is then factorized. The current factorization is via the spectral 

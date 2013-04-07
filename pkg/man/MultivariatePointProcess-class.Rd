@@ -3,8 +3,8 @@
 \docType{class}
 \alias{MultivariatePointProcess-class}
 \alias{formula,MultivariatePointProcess-method}
-\alias{getLocalIndependenceGraph}
-\alias{getLocalIndependenceGraph,MultivariatePointProcess-method}
+\alias{getLinearFilter,MultivariatePointProcess-method}
+\alias{simulate,MultivariatePointProcess-method}
 \alias{summary,MultivariatePointProcess-method}
 \alias{termPlot,MultivariatePointProcess-method}
 
@@ -32,11 +32,6 @@ Objects can be created by calls of \code{\link{pointProcessModel}}.
     
     \item{formula}{\code{signature(x = "MultivariatePointProcess")}:
       Returns a list formulas. }
-
-    \item{getLocalIndependenceGraph}{\code{signature(model =
-	"MultivariatePointProcess")}:  Returns an igraph object, created
-      by \code{graph.adjacency} from package \pkg{igraph}, representing
-      the local independence graph for the point process. }
     
     \item{summary}{\code{signature(object =
 	"MultivariatePointProcess")}: 
@@ -62,8 +57,7 @@ Maintainer: \email{Niels.R.Hansen@math.ku.dk}
 }
 
 \seealso{
-  \code{\linkS4class{PointProcessModel}}, \code{\link{pointProcessModel}},
-  \code{\link{graph.adjacency}}.
+  \code{\linkS4class{PointProcessModel}}, \code{\link{pointProcessModel}}.
 }
 \examples{
 showClass("MultivariatePointProcess")

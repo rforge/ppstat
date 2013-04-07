@@ -1,7 +1,6 @@
 \name{PointProcessModel-class}
 \docType{class}
 \alias{PointProcessModel-class}
-\alias{PointProcessSmooth-class}
 \alias{coefficients,PointProcessModel-method}
 \alias{coefficients<-}
 \alias{coefficients<-,PointProcessModel,numeric-method}
@@ -9,6 +8,7 @@
 \alias{computeDDMinusLogLikelihood}
 \alias{computeDMinusLogLikelihood,PointProcessModel-method}
 \alias{computeDMinusLogLikelihood}
+\alias{computeMinusLogLikelihood,PointProcessModel-method}
 \alias{computeLinearPredictor,PointProcessModel-method}
 \alias{computeLinearPredictor}
 \alias{computeModelMatrix,PointProcessModel-method}
@@ -19,6 +19,10 @@
 \alias{getModelMatrix}
 \alias{setModelMatrix<-,PointProcessModel,ANY-method}
 \alias{setModelMatrix<-}
+\alias{penalty}
+\alias{penalty,PointProcessModel-method}
+\alias{penalty<-}
+\alias{penalty<-,PointProcessModel,numeric-method}
 \alias{plot,PointProcessModel-method}
 \alias{predict,PointProcessModel-method}
 \alias{show,PointProcessModel-method}
@@ -31,9 +35,7 @@
   An object of class \code{"PointProcessModel"} is returned from the
   constructor \code{pointProcessModel}. It contains the fitted
   generalized linear point process model. The class inherits class
-  \code{"PointProcess"}. The constructor \code{pointProcessSmooth}
-  returns an object of class \code{"PointProcessSmooth"}, which 
-  inherits class \code{"PointProcessModel"}.
+  \code{"PointProcess"}. 
   
 }
 \section{Objects from the Class}{
@@ -64,30 +66,33 @@
     
     \item{\code{coefficients}:}{a \code{"numeric"} vector containing the
       estimated model parameters.} 
-    
-    \item{\code{fixedCoefficients}:}{list with two entries, \code{which}
-      and \code{value}.}
+      
+    \item{\code{crossProd}:}{a \code{"list"} containing the cross product ot the 
+    model matrix.}
+
+    \item{\code{filterTerms}:}{a \code{"numeric"} specifying the terms in the formul
+    that are filter terms.}
 
     \item{\code{modelMatrixCol}:}{a \code{numeric} vector.}
 
     \item{\code{modelMatrixEnv}:}{an environment that contains an
       object of class \code{"Matrix"} - the model matrix.}
 
-    \item{\code{Omega}:}{object of class \code{"matrix"} - the
-      positive semi-definite penalization matrix.}
+    \item{\code{lambda}}{a \code{"numeric"}. The
+      vector of penalization weights. A length 0 vector means no 
+      penalization.}
     
-    \item{\code{optimResult}:}{list containing the results from numerical
+    \item{\code{optimResult}:}{a \code{"list"} containing the results from numerical
       optimization (\code{optim}).}
-    
-    \item{\code{penalization}:}{a \code{"logical"} specifying if
-      penalization is used for estimation.}
+      
+    \item{\code{responseMatrix}:}{a \code{"Matrix"}. The model matrix subsetted to the 
+    point observations for the response. }
      
     \item{\code{var}:}{a \code{"matrix"}. The estimated
       variance matrix of the model parameter estimator.}
 
     \item{\code{varMethod}:}{a \code{"character"} specifying the method
-      used for estimating the variance matrix.}
-    
+      used for estimating the variance matrix.}         
   }
 }
 \section{Methods}{
@@ -108,7 +113,7 @@
       minus-log-likelihood function.}
     
     \item{computeDMinusLogLikelihood}{\code{signature(model =
-	"PointProcessModel")}: Computes the first derivate of the
+	"PointProcessModel")}: Computes the gradient of the
       minus-log-likelihood function.}
 
     \item{computeLinearPredictor}{\code{signature(model =
@@ -121,16 +126,24 @@
 	"PointProcessModel")}: Returns the model matrix.}
 
     \item{getLinearFilter}{\code{signature(model =
-	"PointProcessModel")}\code{(model, se = FALSE, nr, ...)}: Returns the values
-	of the linear filter functions as a \code{data.frame}. If
-	\code{se = TRUE}, the functions returns a list with the linear
-	filter functions in the first component and the estimated
-	standard errors in the second component.}
+	  "PointProcessModel")}\code{(model, se = FALSE, nr, ...)}: Returns the values
+	  of the linear filter functions as a \code{data.frame}. If
+	  \code{se = TRUE}, the functions returns a list with the linear
+	  filter functions in the first component and the estimated
+	  standard errors in the second component.}
 
-     \item{setModelMatrix<-}{\code{signature(model =
-	 "PointProcessModel",value = "Matrix")}: Sets the model matrix.}
+    \item{setModelMatrix<-}{\code{signature(model =
+	 "PointProcessModel",value = "list")}: Sets the model matrix.}
+   
+    \item{penalty}{\code{signature(model =
+   "PointProcessModel",)}: Returns the \code{lambda} vector of
+   penalty weights.}
 
-      \item{predict}{\code{signature(object =
+    \item{penalty<-}{\code{signature(model =
+   "PointProcessModel", "numeric")}: Sets the \code{lambda} vector of
+   penalty weights.}
+   
+    \item{predict}{\code{signature(object =
 	 "PointProcessModel")}: Returns the intensity. This is the
 	 linear predictor, as computed by \code{computeLinearPredictor},
 	 transformed by \eqn{\phi}{phi}.}
@@ -164,7 +177,8 @@
 \author{Niels Richard Hansen, \email{Niels.R.Hansen@math.ku.dk}}
 
 \seealso{\code{\link{pointProcessModel}},
-  \code{\link{pointProcessSmooth}}, \code{\linkS4class{PointProcess}},
+  \code{\linkS4class{PointProcess}}, \code{\linkS4class{PointProcessSmooth}},
+  \code{\linkS4class{PointProcessKernel}}
   \code{\linkS4class{ProcessData}},
   \code{\link[=summary,PointProcessModel-method]{summary}}, \code{\link{formula}}.
 }

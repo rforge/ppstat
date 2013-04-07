@@ -45,8 +45,6 @@ Archea virus genome data.
   Analyzing only the nucleotide sequence similarity matches suggests that
   such an association is not present. At least, not detectable with the
   current data set.
-
-  The data set is used in the demo \code{archeaVirus}.
   
 }
 
@@ -66,8 +64,6 @@ data(archeaVirus)
 \dontrun{
 ## Plot of the point process data only
 plot(archeaVirus[,-c(1,2)])}
-
-demo(archeaVirus)
 }
 
 \keyword{datasets}

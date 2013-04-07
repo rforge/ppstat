@@ -1,6 +1,7 @@
 \name{summary}
 \alias{summary,PointProcessModel-method}
 \alias{summary,PointProcessSmooth-method}
+\alias{summary,PointProcessKernel-method}
 \alias{print.summary.glppm}
 \title{summary}
 \description{
@@ -10,8 +11,9 @@
 
 }
 \usage{
-\S4method{summary}{PointProcessModel}(object,...)
-\S4method{summary}{PointProcessSmooth}(object,...)
+\S4method{summary}{PointProcessModel}(object, ...)
+\S4method{summary}{PointProcessSmooth}(object, ...)
+\S4method{summary}{PointProcessKernel}(object, ...)
 
 \S3method{print}{summary.glppm}(x, digits = max(3, getOption("digits") - 3), 
     signif.stars = getOption("show.signif.stars"), ...)

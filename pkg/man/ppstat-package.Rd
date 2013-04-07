@@ -14,8 +14,8 @@ point process models.
 \tabular{ll}{
 Package: \tab ppstat\cr
 Type: \tab Package\cr
-Version: \tab 0.8 \cr
-Date: \tab 2012-03-01 \cr
+Version: \tab 0.9 \cr
+Date: \tab 2013-04-05 \cr
 License: \tab GPL version 2 or newer \cr
 URL: \tab http://www.math.ku.dk/~richard/ppstat \cr
 LazyLoad: \tab yes\cr
@@ -30,9 +30,9 @@ generalized linear point process model to a dataset. The data need to be
 stored as an object of S4-class
 \code{\linkS4class{MarkedPointProcess}}. A \code{MarkedPointProcess}
 object can hold data from a marked point process as well as additional
-(covariate) continuous processes. Another function is
-\code{\link{pointProcessSmooth}} that implements automatic basis
-expansion and smoothing of linear filter functions.
+(covariate) continuous processes. Other functions are
+\code{\link{ppSmooth}} and \code{\link{ppKernel}} that implement
+non-parametric estimaton of linear filter functions.
 
 The data structures for continuous and marked point processes are
 implemented in the separate package \code{\link{processdata}}.
@@ -72,7 +72,8 @@ Hansen, N. R. \emph{Penalized maximum likelihood estimation for
   \code{\linkS4class{MarkedPointProcess}},
   \code{\linkS4class{PointProcessModel}},
   \code{\link{pointProcessModel}},
-   \code{\link{pointProcessSmooth}}
+   \code{\link{ppSmooth}}
+   \code{\link{ppKernel}}
 
 
 }

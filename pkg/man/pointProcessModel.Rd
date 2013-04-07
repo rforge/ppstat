@@ -1,39 +1,30 @@
 \name{pointProcessModel}
 \alias{pointProcessModel}
-\alias{pointProcessSmooth}
 \alias{ppmFit}
 \alias{ppmFit,PointProcessModel-method}
 \alias{ppmFit,MultivariatePointProcess-method}
 
 \title{
-  Construction and fitting of a generalized linear point process model.
+  Construction and estimation of a generalized linear point process model.
 }
 \description{
   
-  The functions \code{pointProcessModel} and \code{pointProcessSmooth}
-  construct objects of class \code{PointProcessModel} or \code{MultivariatePointProcess} and
-  \code{PointProcessSmooth}, respectively, and fit a
-  generalized linear point process model where the intensity function is
-  given in terms of a linear predictor process; a linear combination of
-  linear filters. The linear filters are specified through a symbolic
+  The function \code{pointProcessModel} constructs objects of class 
+  \code{PointProcessModel} or \code{MultivariatePointProcess}. These 
+  models are generalized linear point processes with the intensity function
+  given in terms of a linear predictor process, that is, in terms of a linear 
+  combination of linear filters. The linear filters are specified through a symbolic
   description of the linear predictor process. The function
-  \code{ppmFit} does the actual fitting. 
+  \code{ppmFit} fits the model to the data. 
   
 }
 \usage{
 
 pointProcessModel(formula, data, family, support = 1, N = 200, Delta,
-  basisPoints, Omega, coefficients, fixedCoefficients = list(),
-  modelMatrix = TRUE, fit = modelMatrix, varMethod = 'Fisher',
-  basisEnv, ...)
+  lambda, coefficients, modelMatrix = TRUE, fit = modelMatrix, 
+  varMethod = 'Fisher', basisEnv, selfStart = TRUE, ...)
 
-pointProcessSmooth(formula, data, family, support, lambda = 1,
-  allKnots = FALSE, N = 200, Delta,  basisPoints, coefficients,
-  fixedCoefficients = list(), fit = TRUE, varMethod = 'Fisher',
-  basisEnv, ...)
-
-\S4method{ppmFit}{PointProcessModel}(model, control = list(),
-optim = 'optim', selfStart = FALSE, ...)
+\S4method{ppmFit}{PointProcessModel}(model, control = list(), optim = 'optim', selfStart = FALSE, ...)
 
 \S4method{ppmFit}{MultivariatePointProcess}(model, control = list(), ...)
 
@@ -54,16 +45,7 @@ optim = 'optim', selfStart = FALSE, ...)
   \item{support}{a \code{numeric} vector. Specifies the support of the
     filter functions as the interval from \code{support[1]} to
     \code{support[2]}. If \code{support} is of length 1 the support is the
-    interval from 0 to \code{support[1]}. Is ignored if
-    \code{basisPoints} is specified. The default value is 1.}
-
-  \item{lambda}{a \code{numeric}. The tuning parameter for the
-  penalization term used in \code{pointProcessSmooth}. Default value is
-  1.}
-
-\item{allKnots}{a \code{logical}. Should all knots for the spline basis expansion be used in
-  \code{pointProcessSmooth}. If not, the same thinning algorithm is used as in \code{smoothing.spline}. Default value is
-  FALSE.}
+    interval from 0 to \code{support[1]}. The default value is 1.}
 
   \item{N}{a \code{numeric}. The number of basis function evaluations
     used in the support. Default value 200.}
@@ -72,24 +54,13 @@ optim = 'optim', selfStart = FALSE, ...)
     \code{Delta}-grid values in the support. If missing, \code{Delta} is
     set to the length of the support divided by \code{N}. If specified,
     overrides the use of \code{N}.}
-  
-  \item{basisPoints}{a \code{numeric} vector. Specifies the points where
-    the basis functions are evaluated. If missing, the basis functions
-    are evaluated equidistantly at \code{Delta}-grid points in the
-    support.}
-  
-  \item{Omega}{an optional square matrix resulting in a quadratic penalization of
-    the parameter vector. If missing, no penalization term is added to
-    the minus-log-likelihood when the estimates are computed.}
+    
+  \item{lambda}{an optional vector of penalization weights 
+  in a quadratic penalization of the parameter vector. If missing, no 
+  penalization is added to the negative log-likelihood when estimates are computed.}
   
   \item{coefficients}{an optional specification of the initial parameters
     used for the numerical optimization.}
-  
-  \item{fixedCoefficients}{a \code{list} describing parameters that
-    should be fixed.  The specification is given in terms of two entries
-    named \code{which} and \code{values}, which give the position in the
-    parameter vector and the value, respectively, of the parameters that
-    should be fixed.}
   
   \item{modelMatrix}{a \code{logical}. Specifies if the model matrix is
     to be computed. Default is \code{TRUE}.}
@@ -135,17 +106,10 @@ optim = 'optim', selfStart = FALSE, ...)
   specified in terms of a formula, and, if required, computes the  
   model matrix and fits the model to the data.
 
-  \code{pointProcessSmooth} is a wrapper to \code{pointProcessModel}
-  that treats terms in the formula of the form \code{s(.)} in a special
-  way. Such terms are replaced by an automatic basis expansion in terms
-  of B-splines, and the corresponding parameters will be penalized in
-  the standard way to ensure smoothness. 
-
   When calling \code{pointProcessModel} the three arguments
-  \code{formula}, \code{data} and \code{family} must always be
-  specified. In addition, a specification of the argument \code{support} (and
-  optionally \code{N} or \code{Delta}) or the argument
-  \code{basisPoints} should be considered.
+  \code{formula}, \code{data} and \code{family} must be
+  specified. In addition, a specification of the argument \code{support} and
+  optionally \code{N} or \code{Delta} should be considered.
 
   The \code{formula} specifies together with the \code{family} the
   conditional intensity for a point process in terms of the history of
@@ -287,10 +251,10 @@ optim = 'optim', selfStart = FALSE, ...)
   quadratic optimization problem is faster to solve than minimizing the
   minus-log-likelihood. Technically, for the resulting model to be a
   well specified point process, the solution has to fulfill a positivity
-  contraint, which is currently not enforced. Finally, with \code{optim
+  contraint, which is not enforced. Finally, with \code{optim
   = 'glmnet'} the parameters are penalized with an \eqn{l_1}{l1}-norm
   and the solution is computed using the \code{glmnet} function. This
-  works with \eqn{\phi}{phi} the identity, in which case a least squares
+  is implemented with \eqn{\phi}{phi} the identity, in which case a least squares
   criterion is used, and with \eqn{\phi}{phi} the exponential (that is,
   with a log-link function), in which case the minus-log-likelihood is
   used.
@@ -300,10 +264,6 @@ optim = 'optim', selfStart = FALSE, ...)
 \value{ An object of class \code{\linkS4class{PointProcessModel}} or
   \code{\linkS4class{MultivariatePointProcess}} 
   containing the estimated parameters.
-
-  The function \code{pointProcessSmooth} returns an object of class
-  \code{\linkS4class{PointProcessSmooth}}, which is an extension of
-  \code{PointProcessModel}, but currently with an identical content. 
   
   Use \code{summary} to get a standard summary output from the
   fitted model.
@@ -312,16 +272,6 @@ optim = 'optim', selfStart = FALSE, ...)
   filter function(s).
 }
 \note{
-
-  The functionality of  \code{pointProcessSmooth} is limited. It has one
-  standard scheme for the computation of the B-spline basis functions,
-  and there is currently no automatic selection of the tuning
-  parameter. Moreover, the various functions inherited from class
-  \code{PointProcessModel} that can be applied to an
-  object of class \code{PointProcessSmooth} may produce misleading
-  information. There is e.g. no correction of the degrees of freedom,
-  nor of the AIC statistics owing to the fact that this is a smoothed
-  and penalized fit.
 
   The current implementation supports linear filters of continuous
   processes through the \code{.d} notation in the formula. However, the
@@ -358,7 +308,8 @@ summary(toyPPM)
 \dontrun{## Plot of the filter function
 termPlot(toyPPM)}
 
-toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0,1,2)),
+toyPPM <- pointProcessModel(BETA ~ cut(ALPHA, c(0,1,2),
+                                       include.lowest = TRUE),
                             data = toyData,
                             family = Hawkes(),
                             support = 2)

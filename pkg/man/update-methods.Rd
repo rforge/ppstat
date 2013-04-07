@@ -11,17 +11,16 @@
 }
 \usage{
 
-\S4method{update}{PointProcessModel}(object, formula = .~., warmStart = TRUE,
-  fixedCoefficients = list(), fit = TRUE, \dots)
+\S4method{update}{PointProcessModel}(object, formula = NULL, warmStart = TRUE, fit = TRUE, lambda = NULL, \dots)
 
-\S4method{update}{MultivariatePointProcess}(object, formula = .~., \dots)
+\S4method{update}{MultivariatePointProcess}(object, formula = NULL, \dots)
 
 }
 \arguments{
   \item{object}{the \code{PointProcessModel} object to be updated.}
 
   \item{formula}{Changes to the formula - see \code{\link{update.formula}} for
-    details. The default value \code{.~.} results in a refit of the
+    details. The default value \code{NULL} results in a refit of the
     model.}
 
   \item{warmStart}{a \code{logical}. Specifies if the optimization
@@ -29,18 +28,13 @@
     estimated values of the parameters from the original
     model, if possible, as initial values. Default is
     \code{TRUE}.}
-  
-  \item{fixedCoefficients}{a \code{list}. Parameters that should be fixed 
-    specified as a list containing the two entries \code{which} and
-    \code{values} that give the position in the parameter vector and the
-    value, respectively, of the parameters that should be fixed. The
-    \code{which} vector of positions is with respect to the updated
-    model parameters. Note that if \code{fixedCoefficients} is
-    specified, it overides any fixed coefficients in \code{object} - no
-    attempt is made to merge the two sets of fixed coefficients.}
 
   \item{fit}{a \code{logical}. Should the model be refitted. Default
   value is \code{TRUE}.}
+  
+  \item{lambda}{a \code{numeric}. Either a vector or a single numeric
+  specifying the penalization weight on the different parameters. Default
+  value is \code{NULL}, which means no penalization.}
 
   \item{\dots}{additional arguments to the call. Passed on to \code{ppmFit}.}
 }

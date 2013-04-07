@@ -33,6 +33,8 @@
     
     \item{\code{delta}:}{a \code{"numeric"}. The
       interdistances between the grid (time) points in the data set.}
+      
+    \item{\code{df}:}{a \code{"numeric"}. The effective degrees of freedom.}
     
     \item{\code{family}:}{an object of class \code{"Family"}. The family
       object specifying the specific interpretation of the formula
@@ -40,6 +42,9 @@
      
     \item{\code{formula}:}{a \code{"formula"}. The model
       formula specifying the model.}
+      
+    \item{\code{loss}:}{a \code{"character"} specifying the type of loss function 
+    used for model fitting. }
 
      \item{\code{response}:}{a \code{"character"}. The vector of 
      response marks. Extracted from the \code{formula}.}
