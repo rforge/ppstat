@@ -10,20 +10,53 @@ setMethod("anticipating", "PointProcess",
 
 setMethod("computeMinusLogLikelihood", "PointProcess",
           function(model, coefficients = NULL, ...) {
-            eta <- computeLinearPredictor(model, coefficients, ...)
-             if(isTRUE(response(model) == ""))
-               stop("No response variable specified.")
+            if(isTRUE(response(model) == ""))
+              stop("No response variable specified.")
             
+            eta <- computeLinearPredictor(model, coefficients, ...)
+            pointer <- getPointPointer(processData(model), response(model))
             if(model@family@link == "log"){
-              mll <-  sum(exp(eta)*model@delta) -
-                sum(eta[getPointPointer(processData(model), response(model))]) 
+              mll <-  sum(exp(eta) * model@delta) -
+                sum(eta[pointer]) 
             } else {
-              mll <-  sum(model@family@phi(eta)*model@delta) -
-                sum(log(model@family@phi(eta[getPointPointer(processData(model), response(model))]))) 
+              phieta <- model@family@phi(eta)
+              mll <-  sum(phieta * model@delta) -
+                sum(safeLog(phieta[pointer])) 
             }
             
             return(mll)
           }
+          )
+
+setMethod("computeQuadraticContrast", "PointProcess",
+          function(model, coefficients = NULL, ...) {
+            if(isTRUE(response(model) == ""))
+              stop("No response variable specified.")
+
+            eta <- computeLinearPredictor(model, coefficients, ...)
+            pointer <- getPointPointer(processData(model), response(model))
+
+            phieta <- model@family@phi(eta)
+            sum(phieta^2 * model@delta) -
+              2 * sum(phieta[pointer]) 
+          }
+          )          
+
+setMethod("computeLoss", "PointProcess",
+          function(model, loss = 'default', ...) {
+            if (loss == 'default')
+              loss <- model@loss
+            switch(loss,
+                   likelihood = {
+                     loss <- computeMinusLogLikelihood(model)
+                   },
+                   quadratic = {
+                     loss <- computeQuadraticContrast(model)/2
+                   },
+                   stop(paste("No loss method", loss))
+                   )
+            return(loss)
+          }                  
           )
 
 setMethod("family", "PointProcess",
