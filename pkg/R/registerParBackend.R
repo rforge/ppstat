@@ -8,7 +8,7 @@ registerParBackend <- function(backend = 'mc', cores = NULL) {
     if(.Platform$GUI %in% c("X11", "unknown")) {
       if(require("parallel")) {
         if(!is.null(cores))
-          options(cores = cores)
+          options(mc.cores = cores)
         
         assign("lapplyParallel", parallel:::mclapply, .ppstatGlobals)
         assign("backend", "mc", .ppstatGlobals)
