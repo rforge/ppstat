@@ -1,7 +1,7 @@
 ppLasso <- function(
   formula,
   data,
-  family,
+  family = Hawkes("identity"),
   support = 1,
   N = 200,
   Delta,
