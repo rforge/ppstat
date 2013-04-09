@@ -1,5 +1,16 @@
 \name{NEWS}
 \title{ppstat News}
+\section{Changes in ppstat version 0.9.1}{
+  \subsection{New features}{
+    \itemize{
+      \item The \code{Ogata} function and the \code{simulate} method for the 
+      \code{MultivariatePointProcess} class are introduced to simulate multivariate 
+      point processes using the Ogata thinning algorithm.
+      \item Support for automatic model selection and multivariate modeling 
+      using \code{ppKernel} and \code{ppSmooth}.
+    }
+  }
+}
 
 \section{Changes in ppstat version 0.9}{
   \subsection{New features}{
