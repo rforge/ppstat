@@ -318,9 +318,9 @@ setMethod("kernelCoefficients", "PointProcessKernel",
 
 setMethod("computeLinearPredictor", "PointProcessKernel",
           function(model, coefficients = NULL, ...) {
-            if(!is.null(coefficients)) {
+            if(!is.null(coefficients)) 
               coefficients(model) <- coefficients
-            } 
+             
             modelMatrix <- getModelMatrix(model)
             d <- ncol(modelMatrix)
             coefficients <- coefficients(model)[seq_len(d)]
@@ -369,8 +369,7 @@ setMethod("computeDMinusLogLikelihood", "PointProcessKernel",
               
             }
             
-            c(callNextMethod(model = model, eta = eta, fastIdentity = FALSE, ...),
-              as.numeric(dmll))
+            c(callNextMethod(model = model, eta = eta, fastIdentity = FALSE, ...), dmll)
           }
 )
 
