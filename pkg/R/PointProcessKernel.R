@@ -353,24 +353,23 @@ setMethod("computeDMinusLogLikelihood", "PointProcessKernel",
               eta <- computeLinearPredictor(model, coefficients, ...)
             
             kM <- getKernelMatrix(model)
+            Z <- getResponseKernelMatrix(model)
             
             if(model@family@link == "log") {
               
-              dmll <- (as.vector(t(exp(eta)*model@delta) %*% kM) -
-                         colSums(kM[getPointPointer(processData(model), response(model)), , drop = FALSE])) %*% model@U
+              dmll <- (as.vector(crossprod(exp(eta) * model@delta, kM)) -
+                         colSums(Z)) %*% model@U
               
             } else {
               
               etaP <- eta[getPointPointer(processData(model), response(model))]
-              mmP <- kM[getPointPointer(processData(model), response(model)), , drop <= FALSE]
               
-              dmll <-  (as.vector(t(model@family@Dphi(eta)*model@delta) %*% kM) -
-                          as.vector(t(model@family@Dphi(etaP)/model@family@phi(etaP)) %*% mmP)) %*% model@U
+              dmll <-  (as.vector(crossprod(model@family@Dphi(eta) * model@delta, kM)) -
+                          as.vector(crossprod(model@family@Dphi(etaP)/model@family@phi(etaP), Z))) %*% model@U
               
             }
             
-            c(computeDMinusLogLikelihood(as(model, "PointProcessModel"),
-                                         eta = eta, fastIdentity = FALSE, ...),
+            c(callNextMethod(model = model, eta = eta, fastIdentity = FALSE, ...),
               as.numeric(dmll))
           }
 )
@@ -476,6 +475,12 @@ setMethod("getKernelBasis", "PointProcessKernel",
           }
 )
 
+setMethod("getResponseKernelMatrix", "PointProcessKernel",
+          function(model, ...) {
+            model@responseKernelMatrix
+          }
+)
+
 ## TODO: Implement update method.
 
 setMethod("update", "PointProcessKernel",
@@ -483,6 +488,18 @@ setMethod("update", "PointProcessKernel",
             message("No 'update' method currently implemented for a 'PointProcessKernel' object.")
             object
           }          
+)
+
+setMethod("updateResponseKernelMatrix", "PointProcessKernel",
+          function(model, ...) {
+            if (!isTRUE(response(model) == "")) {
+              X <- getKernelMatrix(model)
+              pointers <- getPointPointer(processData(model),
+                                          response(model))
+              model@responseKernelMatrix <- X[pointers, , drop = FALSE]
+            }
+            return(model)
+          }
 )
 
 setMethod("updateKernelMatrix", "PointProcessKernel",
@@ -495,6 +512,9 @@ setMethod("updateKernelMatrix", "PointProcessKernel",
             if(!missing(form))
               model@kernelMatrixEnv$formula <- form
             model@kernelMatrixCol <- numeric()
+            if(nrow(kernelMatrix) > 0) {
+              model <- updateResponseKernelMatrix(model)
+            }
             return(model)
           }
 )

@@ -287,19 +287,19 @@ setMethod("computeDMinusLogLikelihood", "PointProcessModel",
                 etaP <- eta[getPointPointer(processData(model), response(model))]
                 
                 dmll <- getz(model) -
-                  as.vector(t(1/model@family@phi(etaP)) %*% Z)                
+                  as.vector(crossprod(1/model@family@phi(etaP), Z))              
                 
               } else if (model@family@link == "log") {
                 
-                dmll <- as.vector(t(exp(eta) * model@delta) %*% getModelMatrix(model)) -
+                dmll <- as.vector(crossprod(exp(eta) * model@delta,  getModelMatrix(model))) -
                   colSums(Z)
                 
               } else {
                 
                 etaP <- eta[getPointPointer(processData(model), response(model))]
                 
-                dmll <-  as.vector(t(model@family@Dphi(eta) * model@delta) %*% getModelMatrix(model)) -
-                  as.vector(t(model@family@Dphi(etaP)/model@family@phi(etaP)) %*% Z)
+                dmll <-  as.vector(crossprod(model@family@Dphi(eta) * model@delta, getModelMatrix(model))) -
+                  as.vector(crossprod(model@family@Dphi(etaP)/model@family@phi(etaP), Z))
                 
               }
             }
@@ -339,8 +339,8 @@ setMethod("computeDDMinusLogLikelihood", "PointProcessModel",
                 
                 etaP <- eta[getPointPointer(processData(model), response(model))]
                 w1 <- Diagonal(x = model@family@D2phi(eta) * model@delta)
-                w2 <- Diagonal(x = (model@family@D2phi(etaP)*model@family@phi(etaP) -
-                                      model@family@Dphi(etaP)^2)/model@family@phi(etaP)^2)
+                w2 <- Diagonal(x = (model@family@D2phi(etaP) * model@family@phi(etaP) -
+                                      model@family@Dphi(etaP)^2) / model@family@phi(etaP)^2)
                 
                 ddmll <-  as(crossprod(X, w1 %*% X), "matrix") -
                   as(crossprod(Z, w2 %*% Z), "matrix")

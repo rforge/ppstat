@@ -112,7 +112,9 @@ setClass("PointProcessKernel",
            ## kernelMatrix used for computations with
            ## non-parametric kernel filters.
            kernelMatrixEnv = "environment",
-
+           
+           responseKernelMatrix = "Matrix",
+           
            ## The U matrix is a block diagonal matrix
            ## stored as a sparse matrix which encodes
            ## the reparametrization of the kernel
