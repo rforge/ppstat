@@ -38,44 +38,56 @@ setMethod("family", "Family",
           }
           )
 
-makeLink <- function (link,c=0) 
+makeLink <- function (link, c = 0) 
 {
+  eps <- .Machine$double.eps
+  ## The following two special version of 'pmax' and 
+  ## 'pmin' are 2-3 times faster than the original
+  ## for large vectors x and a scalar y.
+  pmax <- function(x, y) {
+     x[which(x < y)] <- y
+     x
+   }
+   pmin <- function(x, y) {
+     x[which(x > y)] <- y
+     x
+   }      
   switch(link, logit = {
     linkfun <-  binomial()$linkfun
     linkinv <- binomial()$linkinv
     Dlinkinv <- binomial()$mu.eta 
-    D2linkinv <- function(eta) Dlinkinv(eta)*(1 - 2*linkinv(eta))
+    D2linkinv <- function(eta) Dlinkinv(eta) * (1 - 2 * linkinv(eta))
     valideta <- function(eta) TRUE
   }, cloglog = {
     linkfun <- function(mu) log(-log(1 - mu))
     linkinv <- function(eta) pmax(pmin(-expm1(-exp(eta)), 
-                                       1 - .Machine$double.eps), .Machine$double.eps)
+                                       1 - eps), eps)
     Dlinkinv <- function(eta) {
       eta <- pmin(eta, 700)
-      pmax(exp(eta-exp(eta)), .Machine$double.eps)
+      pmax(exp(eta - exp(eta)), eps)
     }
     D2linkinv <- function(eta) {
       eta <- pmin(eta, 700)
-      pmax((1-exp(eta))*exp(eta-exp(eta)), .Machine$double.eps)
+      pmax((1 - exp(eta)) * exp(eta - exp(eta)), eps)
     }
     valideta <- function(eta) TRUE
   }, identity = {
     linkfun <- function(mu) mu
     linkinv <- function(eta) eta
     Dlinkinv <- function(eta) rep.int(1, length(eta))
-    D2linkinv <- function(eta) rep.int(0,length(eta))
+    D2linkinv <- function(eta) rep.int(0, length(eta))
     valideta <- function(eta) all(eta > 0)
   }, log = {
     linkfun <- function(mu) log(mu)
-    linkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)
-    Dlinkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)
-    D2linkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)
+    linkinv <- function(eta) pmax(exp(eta), eps)
+    Dlinkinv <- function(eta) pmax(exp(eta), eps)
+    D2linkinv <- function(eta) pmax(exp(eta), eps)
     valideta <- function(eta) TRUE
   }, log2 = {
     linkfun <- function(mu) log(mu, 2)
-    linkinv <- function(eta) pmax(2^eta, .Machine$double.eps)
-    Dlinkinv <- function(eta) pmax(2^eta, .Machine$double.eps)
-    D2linkinv <- function(eta) pmax(2^eta, .Machine$double.eps)
+    linkinv <- function(eta) pmax(2^eta, eps)
+    Dlinkinv <- function(eta) pmax(2^eta, eps)
+    D2linkinv <- function(eta) pmax(2^eta, eps)
     valideta <- function(eta) TRUE
   }, sqrt = {
     linkfun <- function(mu) sqrt(mu)
@@ -85,22 +97,22 @@ makeLink <- function (link,c=0)
   }, root = {
     if(c==0) {
       linkfun <- function(mu) mu
-      linkinv <- function(eta) pmax(eta*(eta > 0), .Machine$double.eps)
-      Dlinkinv <- function(eta) rep(1,length(eta))*(eta > 0)
-      D2linkinv <- function(eta) rep(0,length(eta))*(eta > 0) 
+      linkinv <- function(eta) pmax(eta * (eta > 0), eps)
+      Dlinkinv <- function(eta) rep(1,length(eta)) * (eta > 0)
+      D2linkinv <- function(eta) rep(0,length(eta)) * (eta > 0) 
       valideta <- function(eta) TRUE
     } else {
       linkfun <- function(mu) mu^{1/(c+1)}
-      linkinv <- function(eta) pmax(eta^(c+1)*(eta > 0), .Machine$double.eps^(c+1))
-      Dlinkinv <- function(eta) (c+1) * pmax(eta^c*(eta > 0), .Machine$double.eps^c)
-      D2linkinv <- function(eta) (c+1)*c*pmax(eta^{c-1}*(eta > 0), .Machine$double.eps^(c-1))
+      linkinv <- function(eta) pmax(eta^(c+1) * (eta > 0), eps^(c+1))
+      Dlinkinv <- function(eta) (c + 1) * pmax(eta^c * (eta > 0), eps^c)
+      D2linkinv <- function(eta) (c + 1) * c * pmax(eta^{c - 1} * (eta > 0), eps^(c-1))
       valideta <- function(eta) TRUE
     }        
   }, logaffine = {
-    linkfun <- function(mu) log(mu)(mu <= exp(c)) + (exp(-c)*mu + c - 1)*(mu > exp(c))
-    linkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)*(eta <=c) + exp(c)*(eta -c + 1)*(eta > c)
-    Dlinkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)*(eta <=c) + exp(c)*(eta > c)
-    D2linkinv <- function(eta) pmax(exp(eta), .Machine$double.eps)*(eta <=c)
+    linkfun <- function(mu) log(mu)(mu <= exp(c)) + (exp(-c) * mu + c - 1) * (mu > exp(c))
+    linkinv <- function(eta) pmax(exp(eta), eps) * (eta <= c) + exp(c) * (eta -c + 1) * (eta > c)
+    Dlinkinv <- function(eta) pmax(exp(eta), eps) * (eta <= c) + exp(c) * (eta > c)
+    D2linkinv <- function(eta) pmax(exp(eta), eps) * (eta <= c)
     valideta <- function(eta) TRUE
   }, stop(sQuote(link), " link not recognised"))
   structure(list(linkfun = linkfun, linkinv = linkinv, Dlinkinv = Dlinkinv, D2linkinv = D2linkinv,
