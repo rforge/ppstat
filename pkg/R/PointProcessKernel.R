@@ -369,7 +369,8 @@ setMethod("computeDMinusLogLikelihood", "PointProcessKernel",
               
             }
             
-            c(callNextMethod(model = model, eta = eta, fastIdentity = FALSE, ...), dmll)
+            c(callNextMethod(model = model, eta = eta, fastIdentity = FALSE, ...), 
+              as.numeric(dmll))
           }
 )
 
