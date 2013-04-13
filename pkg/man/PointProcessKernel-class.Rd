@@ -31,6 +31,7 @@ New slots:
     \item{\code{kernelMatrixEnv}:}{an environment that contains an
       object of class \code{"Matrix"} - a sort of model matrix corresponding to 
       the kernel terms.}
+    \item{\code{responseKernelMatrix}:}{a \code{"Matrix"}.}
     \item{\code{U}:}{a \code{"Matrix"} specifying a reparametrization.}
   }
 }

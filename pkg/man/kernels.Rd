@@ -9,7 +9,7 @@ Reproducing kernels
 Computation reproducing kernel evaluations.
 }
 \usage{
-sobolevKernel(s, r, t = 1, sub = NULL)
+sobolevKernel(s, r, t = 1, sub = NULL, constraint = 'boundary')
 gaussianKernel(s, r, t = 1, c = 1)
 }
 \arguments{
@@ -27,7 +27,12 @@ gaussianKernel(s, r, t = 1, c = 1)
   Default value \code{NULL} means no subspace. If 0, the kernel is projected to the 2-dimensional 
   subspace spanned by the constant and linear functions, and if anything else, the kernel 
   is projected to the orthogonal complement. 
-}
+  }
+  \item{constraint}{a \code{character}. The Sobolev space is a direct sum of a 2-dimensional
+  space and a constraint space. This can either be the space of functions with boundary values 0,
+  or the space of functions with initial value and derivative 0. The corresponding direct sum 
+  kernels differ. The default is 'boundary'. 
+  }
 }
 \details{The Sobolev kernel is the reproducing kernel for the (2,2) Sobolev space
 on \eqn{[0, t]}. The arguments \code{s} and \code{r} must be in the interval. If \code{sub = 1}
