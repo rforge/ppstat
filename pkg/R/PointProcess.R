@@ -1,6 +1,6 @@
 setMethod("anticipating", "PointProcess",
           function(model, ...) {
-            antipmodels = c("Gibbs")
+            antipmodels <- c("Gibbs")
             if(family(model@family) %in% antipmodels)
               return(TRUE)
 
@@ -16,11 +16,11 @@ setMethod("computeMinusLogLikelihood", "PointProcess",
             eta <- computeLinearPredictor(model, coefficients, ...)
             pointer <- getPointPointer(processData(model), response(model))
             if(model@family@link == "log"){
-              mll <-  sum(exp(eta) * model@delta) -
+              mll <- sum(exp(eta) * model@delta) -
                 sum(eta[pointer]) 
             } else {
               phieta <- model@family@phi(eta)
-              mll <-  sum(phieta * model@delta) -
+              mll <- sum(phieta * model@delta) -
                 sum(safeLog(phieta[pointer])) 
             }
             
@@ -37,8 +37,8 @@ setMethod("computeQuadraticContrast", "PointProcess",
             pointer <- getPointPointer(processData(model), response(model))
 
             phieta <- model@family@phi(eta)
-            sum(phieta^2 * model@delta) -
-              2 * sum(phieta[pointer]) 
+            sum(phieta^2 * model@delta) / 2 -
+              sum(phieta[pointer]) 
           }
           )          
 
@@ -51,7 +51,7 @@ setMethod("computeLoss", "PointProcess",
                      loss <- computeMinusLogLikelihood(model)
                    },
                    quadratic = {
-                     loss <- computeQuadraticContrast(model)/2
+                     loss <- computeQuadraticContrast(model)
                    },
                    stop(paste("No loss method", loss))
                    )

@@ -1,8 +1,10 @@
 \name{NEWS}
 \title{ppstat News}
-\section{Changes in ppstat version 0.9.1}{
+\section{Changes in ppstat version 0.9.5}{
   \subsection{New features}{
     \itemize{
+      \item The code from the \code{processData} R package has been included in the 
+      this package. The \code{processData} package is no longer needed.
       \item The \code{Ogata} function and the \code{simulate} method for the 
       \code{MultivariatePointProcess} class are introduced to simulate multivariate 
       point processes using the Ogata thinning algorithm.

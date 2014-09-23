@@ -8,7 +8,7 @@
 }
 \usage{
 \S4method{termPlot}{PointProcessModel}(model, alpha = 0.05, layer =
-geom_line(), trans = NULL, ...)
+geom_line(), trans = NULL, confArg = list(fill = "blue", alpha = 0.2), ...)
 }
 \arguments{
   \item{model}{an object of class \code{PointProcessModel}.}
@@ -19,6 +19,7 @@ geom_line(), trans = NULL, ...)
     layer \code{geom_line()}.}
   \item{trans}{a function or character string. The function used to transform the linear filter functions
     before plotting.}
+    \item{confArg}{a \code{list}. Determines the color of confidence bands.}
   \item{...}{other arguments.}
 
 }

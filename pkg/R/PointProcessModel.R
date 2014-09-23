@@ -252,8 +252,8 @@ setMethod("computeQuadraticContrast", "PointProcessModel",
                 
                 Z <- getResponseMatrix(model)
                 
-                qc <- as.numeric(t(coefficients) %*% G$G %*% coefficients) -
-                  2 * sum(as.numeric(Z %*% coefficients))
+                qc <- as.numeric(t(coefficients) %*% G$G %*% coefficients) / 2 -
+                  sum(as.numeric(Z %*% coefficients))
               }
             } else {
               qc <- callNextMethod()
@@ -287,19 +287,19 @@ setMethod("computeDMinusLogLikelihood", "PointProcessModel",
                 etaP <- eta[getPointPointer(processData(model), response(model))]
                 
                 dmll <- getz(model) -
-                  as.vector(crossprod(1/model@family@phi(etaP), Z))              
+                  as.vector((1/model@family@phi(etaP)) %*% Z)              
                 
               } else if (model@family@link == "log") {
                 
-                dmll <- as.vector(crossprod(exp(eta) * model@delta,  getModelMatrix(model))) -
+                dmll <- as.vector((exp(eta) * model@delta) %*%  getModelMatrix(model)) -
                   colSums(Z)
                 
               } else {
                 
                 etaP <- eta[getPointPointer(processData(model), response(model))]
                 
-                dmll <-  as.vector(crossprod(model@family@Dphi(eta) * model@delta, getModelMatrix(model))) -
-                  as.vector(crossprod(model@family@Dphi(etaP)/model@family@phi(etaP), Z))
+                dmll <-  as.vector((model@family@Dphi(eta) * model@delta) %*% getModelMatrix(model)) -
+                  as.vector((model@family@Dphi(etaP)/model@family@phi(etaP)) %*% Z)
                 
               }
             }
@@ -564,7 +564,7 @@ setMethod("computeModelMatrix", "PointProcessModel",
                                                                            model@Delta,
                                                                            posi,
                                                                            zero,
-                                                                           'p'), sparse=TRUE)
+                                                                           'p'))
                                          }
                                          localDesign <- do.call("rBind", designList)
                                          colnames(localDesign) <- colnames(basis)
@@ -595,7 +595,7 @@ setMethod("computeModelMatrix", "PointProcessModel",
                                                                            model@Delta,
                                                                            valuesi,
                                                                            zero,
-                                                                           'c'), sparse=TRUE)
+                                                                           'c'))
                                          }
                                          localDesign <- do.call("rBind", designList)
                                          colnames(localDesign) <- colnames(basis)
@@ -679,13 +679,13 @@ setMethod("computeModelMatrix", "PointProcessModel",
                 
                 tmp <- model.matrix(form, values)
                 assign <- c(c(0, notFilterTerms)[attr(tmp, "assign") + 1], assign)
-                modelMatrix0 <- Matrix(tmp, dimnames = dimnames(tmp), sparse=TRUE)
+                modelMatrix0 <- Matrix(tmp, dimnames = dimnames(tmp))
                 assign <- c(c(0, notFilterTerms)[attr(modelMatrix0, "assign") + 1], assign)
               } else {
                 stop(paste("Use of non existing variable(s) in:", form))
               }
             } else if (attr(mt, "intercept") == 1) {
-              modelMatrix0 <- Matrix(rep(1, dim(processData)[1]), sparse=TRUE)
+              modelMatrix0 <- Matrix(rep(1, dim(processData)[1]))
               colnames(modelMatrix0) <- "(Intercept)"
               assign <- c(0, assign)
             } 
@@ -718,7 +718,7 @@ setMethod("computeVar", "PointProcessModel",
                    none = {
                      vcov <- matrix(0, length(coefficients(model)),
                                     length(coefficients(model)))
-                     rownames(vcov) <- colnames(vcov)  <- names(model@coefficients)
+                     rownames(vcov) <- colnames(vcov) <- names(model@coefficients)
                      model@var <- vcov
                    },
                    dfOnly = {
@@ -730,19 +730,9 @@ setMethod("computeVar", "PointProcessModel",
                      model@df <- model@df
                    },
                    lsSandwich = {
-                     X <- getModelMatrix(model)
-                     eta <- predict(model)
-                     phi <- model@family@phi
-                     Dphi <- model@family@Dphi
-                     if (model@family@link == 'identity') {
-                       J <- getCrossProd(model)$G
-                       w <- Diagonal(x = eta * model@delta)
-                       K <- crossprod(w %*% X, X)
-                     } else {
-                       wX <- Diagonal(x = Dphi(eta)^2 * model@delta) %*% X
-                       J <- crossprod(wX, X)
-                       K <- crossprod(Diagonal(x = phi(eta)) %*% wX, X)
-                     }
+                     KJ <- computeSandwichKJ(model)
+                     K <- KJ$K
+                     J <- KJ$J
                      if (length(lambda) > 0)
                        diag(J) <- diag(J) + lambda  ## It should !not! be 2 * lambda here!
                      Jinv <- try(solve(J), silent = TRUE)
@@ -831,6 +821,25 @@ setMethod("computeVar", "PointProcessModel",
                    }
             )
             return(model)
+          }
+)
+
+setMethod("computeSandwichKJ", "PointProcessModel",
+          function(model, ...) {
+            X <- getModelMatrix(model)
+            eta <- predict(model)
+            phi <- model@family@phi
+            Dphi <- model@family@Dphi
+            if (model@family@link == 'identity') {
+              J <- getCrossProd(model)$G
+              w <- Diagonal(x = eta * model@delta)
+              K <- crossprod(w %*% X, X)
+            } else {
+              wX <- Diagonal(x = Dphi(eta)^2 * model@delta) %*% X
+              J <- crossprod(wX, X)
+              K <- crossprod(Diagonal(x = phi(eta)) %*% wX, X)
+            }
+            return(list(K = K, J = J))
           }
 )
 
@@ -1018,7 +1027,7 @@ setMethod("getTermPlotData", "PointProcessModel",
             
             linearFilter <- getLinearFilter(model, se = se, nr = 400)
             if (se) {
-              moltenFilter <- melt(linearFilter$linearFilter, id.vars = "x")
+              moltenFilter <- reshape2::melt(linearFilter$linearFilter, id.vars = "x")
               plotData <- cbind(moltenFilter,
                                 data.frame(cf.lower = moltenFilter$value - q*unlist(linearFilter$se),
                                            cf.upper = moltenFilter$value + q*unlist(linearFilter$se)))
@@ -1026,7 +1035,7 @@ setMethod("getTermPlotData", "PointProcessModel",
                 plotData[, c("value", "cf.lower", "cf.upper")] <-
                 do.call(trans, list(plotData[, c("value", "cf.lower", "cf.upper")]))
             } else {
-              plotData <- melt(linearFilter, id.vars = "x")
+              plotData <- reshape2::melt(linearFilter, id.vars = "x")
               if (!is.null(trans))
                 plotData$value <- do.call(trans, plotData$value)
             }
@@ -1037,7 +1046,8 @@ setMethod("getTermPlotData", "PointProcessModel",
 
 
 setMethod("termPlot", "PointProcessModel",
-          function(model, alpha = 0.05, layer = geom_line(), trans = NULL, ...) {
+          function(model, alpha = 0.05, layer = geom_line(), trans = NULL, 
+                   confArg = list(fill = "blue", alpha = 0.2), ...) {
             if (length(getFilterTerms(model)) == 0){
               print("No filter function terms to plot.")
               return(invisible())
@@ -1050,19 +1060,19 @@ setMethod("termPlot", "PointProcessModel",
             linearFilterPlot <- ggplot(data = plotData, aes(x = x, y = value)) +
               facet_grid(variable ~ ., scales = "free_y") +
               scale_x_continuous(xLabel) +
-              scale_y_continuous("") + layer
+              scale_y_continuous("") 
             
             if (!isTRUE(all.equal(alpha, 1)))
               linearFilterPlot <- linearFilterPlot +
               geom_ribbon(aes(min = cf.lower, max = cf.upper),
-                          fill = "blue", alpha = 0.2)
+                          fill = confArg$fill, alpha = confArg$alpha)
             
-            return(linearFilterPlot)
+            return(linearFilterPlot + layer)
           }
 )
 
 setMethod("ppmFit", "PointProcessModel",
-          function(model, control = list(), optim = 'optim', selfStart = FALSE, ...) {
+          function(model, control = list(), optim = 'optim', selfStart = TRUE, ...) {
             ## Check if combination of optimization method and link
             ## function is valid.
             link <- family(model)@link
@@ -1200,9 +1210,9 @@ setMethod("iwlsFit", "PointProcessModel",
               ## following computation relies on an algorithm in the
               ## MatrixModels package still under development and
               ## currently not exported.
-              coefficients(model) <- MatrixModels:::lm.fit.sparse(getModelMatrix(model),
-                                                                  wr$workingResponse,
-                                                                  wr$weights)
+              coefficients(model) <- MatrixModels::lm.fit.sparse(getModelMatrix(model),
+                                                                 wr$workingResponse,
+                                                                 wr$weights)
               val <- computeMinusLogLikelihood(model)
               i <- i + 1
               if (trace > 0)
@@ -1335,11 +1345,8 @@ setMethod("lsFit", "PointProcessModel",
               G <- G + diag(lambda) 
             ## TODO: Investigate if the Cholesky decomposition
             ## should be used for solving this equation. 
-            coefficients <- as.numeric(solve(G, crossProd$response))
-                                    
-            model@coefficients <-  coefficients          
-            
-            names(model@coefficients) <- colnames(model@crossProd$G)
+            coefficients(model) <- as.numeric(solve(G, crossProd$response))
+                                                
             model@optimResult <- list(value = computeQuadraticContrast(model),
                                       counts = c(1, 0),
                                       convergence = 0
@@ -1480,6 +1487,7 @@ setMethod("update", "PointProcessModel",
             
             if (!is.null(formula)) {
               modelFormula <- formula(object)
+              recompCrossProd <- FALSE
               if (class(formula) != "formula") {
                 selectTerms <- as.numeric(formula)
                 selectTerms <- selectTerms[selectTerms > 0]
@@ -1528,7 +1536,7 @@ setMethod("update", "PointProcessModel",
                 } else {
                   object@modelMatrixCol <- col
                 }
-                object <- updateCrossProd(object, subset = TRUE)
+                recompCrossProd <- TRUE
                 if (warmStart) {
                   coefficients(object) <- tmpCoef[col]
                 } else {
@@ -1552,6 +1560,8 @@ setMethod("update", "PointProcessModel",
             
             ## TODO: Write a check of whether it is necessary to update the response matrix
             object <- updateResponseMatrix(object)
+            object <- updateCrossProd(object, recomp = recompCrossProd)
+            
             
             if (fit) {
               object <- ppmFit(object, ...)
@@ -1691,22 +1701,12 @@ setMethod("stepInformation", "PointProcessModel",
 )
 
 setMethod("updateCrossProd", "PointProcessModel",
-          function(model, subset = FALSE, ...) {
-            if(xor('G' %in% names(model@crossProd), subset))
+          function(model, recomp = FALSE, ...) {
+            if(xor('G' %in% names(model@crossProd), recomp))
               return(model)
             
-            if (!'G' %in% names(model@crossProd)) {
-              X <- getModelMatrix(model, col = c())
-              G <- crossprod(X, Diagonal(x = model@delta) %*% X)
-            } else {
-              G <- model@crossProd$G
-            }
-            if (subset) {
-              col <- model@modelMatrixCol
-              if (length(col) > 0) 
-                G <- G[col, col]
-            }
-            
+            X <- getModelMatrix(model)
+            G <- crossprod(X, Diagonal(x = model@delta) %*% X)            
             model@crossProd <-  list(G = G, response = colSums(model@responseMatrix))
 
             return(model)

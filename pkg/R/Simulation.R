@@ -1,40 +1,59 @@
 ### Implementation of the multivariate Ogata thinning algorithm.
 
-Ogata <- function(n = 1, lambda, h, hMax, A = Inf, seed = NULL, ...) {
+Ogata <- function(n = 1, lambda, h, A = Inf, seed = NULL, tLim = Inf, ...) {
   if (!is.null(seed))
     set.seed(seed)
   T <- matrix(0, n, 2)
-  colnames(T) <- c("time", "mark")
+  ## Computing bounds for the Ogata algorithm
+  M <- length(h)
+  hMax <- vector("list", M)
+  for (m in seq_len(M)) {
+    hMax[[m]] <- vector("list", M)  
+    for (k in seq_len(M)) {
+      if (!is.null(h[[m]][[k]])) {
+        hMax[[m]][[k]] <- rev(cummax(rev(h[[m]][[k]])))
+      }
+    }
+  }  
+  colnames(T) <- c("time", "markType")
   t <- 0
   i <- 0
   lamb <- lambda(0, h = h, ...)  ## Vector
   K <- sum(lamb)
   M <- length(lamb)
   Tlocal <- vector("list", M)
-  while(i < n) {
-    S <- rexp(1, K)
-    U <- runif(1)
-    t <- t + S
-    tmA <- t - A
-    for (m in seq_len(M)) {
-      j <- 1
-      while (j <= length(Tlocal[[m]]) && Tlocal[[m]][j] < tmA)
-        j <- j + 1
-      if (j > 1)
-        Tlocal[[m]] <- Tlocal[[m]][-(1:(j-1))]
+  repeat {
+    while(i < n) {
+      S <- rexp(1, K)
+      U <- runif(1)
+      t <- t + S
+      if (t > tLim)
+        break
+      tmA <- t - A
+      for (m in seq_len(M)) {
+        j <- 1
+        while (j <= length(Tlocal[[m]]) && Tlocal[[m]][j] < tmA)
+          j <- j + 1
+        if(j > 1)
+          Tlocal[[m]] <- Tlocal[[m]][-(1:(j-1))]
+      }
+      lamb <- lambda(t = t, T = Tlocal, h = h, ...)  ## Vector
+      if(U < sum(lamb)/K) {
+        i <- i + 1
+        ## ALternatively, the next sampling step could be done
+        ## using the U already simulated. 
+        m <- sample.int(M, 1, prob = lamb)
+        T[i, ] <- c(t, m)
+        Tlocal[[m]] <- c(Tlocal[[m]], t)
+      }
+      K <- sum(lambda(t = t, T = Tlocal, h = hMax, predict = FALSE, ...))
     }
-    lamb <- lambda(t = t, T = Tlocal, h = h, ...)  ## Vector
-    if(U < sum(lamb)/K) {
-      i <- i + 1
-      ## ALternatively, the next sampling step could be done
-      ## using the U already simulated. 
-      m <- sample.int(M, 1, prob = lamb)
-      T[i, ] <- c(t, m)
-      Tlocal[[m]] <- c(Tlocal[[m]], t)
-    }
-    K <- sum(lambda(t = t, T = Tlocal, h = hMax, predict = FALSE, ...))
+    if(tLim == Inf || t > tLim)
+      break
+    T <- rbind(T, T)
+    n <- nrow(T)
   }
-  T
+  as.data.frame(T[1:i, , drop = FALSE])
 } 
 
 hawkesRate <- function(t, T = list(), h, predict = TRUE, Delta = 1, 
@@ -44,9 +63,8 @@ hawkesRate <- function(t, T = list(), h, predict = TRUE, Delta = 1,
     stop("Argument 'T' must be a list.")
   t <- t[1]
   if (!is.list(h) && length(h) != length(T)) 
-    stop("Argument 'h' is not a list of the same length af 'T'.")
+    stop("Argument 'h' is not a list of the same length as 'T'.")
   M <- length(h)
-  iMax <- length(h[[1]][[1]])
   lamb <- beta0
   for (k in seq_len(M)) {
     if (length(T) == 0 || length(T[[k]]) == 0) {
@@ -55,15 +73,18 @@ hawkesRate <- function(t, T = list(), h, predict = TRUE, Delta = 1,
       if (t < T[[k]][length(T[[k]])] || (t == T[[k]][length(T[[k]])] && predict)) 
         stop("Time argument 't' smaller than largest 'T'. Possible explosion.")
       i <- floor((t - T[[k]])/Delta + 1.5)
-      if (i[length(i)] > iMax) {
-        if (warn)
-          warning("Point history truncated.", call. = FALSE)
-        i <- i[i <= iMax]
-      }
     }
     for (m in seq_len(M)) {
-      if (!is.null(h[[m]][[k]]))
-        lamb[m] <- lamb[m] + sum(h[[m]][[k]][i])
+      if (!is.null(h[[m]][[k]])) {
+        ii <- i
+        iMax <- length(h[[m]][[k]])
+        if (i[length(i)] > iMax) {
+          if (warn)
+            warning("Point history truncated.", call. = FALSE)
+          ii <- i[i <= iMax]
+        }
+        lamb[m] <- lamb[m] + sum(h[[m]][[k]][ii])
+      }
     }
   }
   phi(lamb)
@@ -74,36 +95,29 @@ setMethod("simulate", "MultivariatePointProcess",
             Delta <- object@models[[1]]@Delta
             A <- max(object@models[[1]]@support)
             linearFilters <- getLinearFilter(object)
-            varNames <-  unique(unlist(lapply(linearFilters, 
-                                              function(x) names(x)[-1]))
-                                ) 
+            responseNames <- names(linearFilters)
             M <- length(linearFilters) 
             h <- vector("list", M)
-            hMax <- vector("list", M)
             beta0 <- numeric(M)
             for(m in seq_len(M)) {
-              h[[m]] <- hMax[[m]] <- vector("list", length(varNames))
-              names(h[[m]]) <- names(hMax[[m]]) <- varNames
-              N <- nrow(linearFilters[[m]])
-              for(k in seq_along(varNames)) {
-                if(varNames[k] %in% names(linearFilters[[m]])) {
-                  h[[m]][[varNames[k]]] <- linearFilters[[m]][, varNames[k]]
-                } else {
-                  h[[m]][[varNames[k]]] <- rep(0, N)
-                }
-                hMax[[m]][[varNames[k]]] <- rev(cummax(rev(h[[m]][[varNames[k]]])))
-                
+              h[[m]] <- vector("list", M)
+              names(h[[m]]) <- responseNames
+              for(k in seq_len(M)) {
+                if(responseNames[k] %in% names(linearFilters[[m]])) 
+                  h[[m]][[responseNames[k]]] <- linearFilters[[m]][, responseNames[k]]
               }
               beta0[m] <- coefficients(object@models[[m]])["(Intercept)"]
             }
-            Ogata(nsim, 
-                  lambda = hawkesRate, 
-                  h = h,
-                  hMax = hMax,
-                  A = A,
-                  Delta = Delta,
-                  beta0 = beta0,
-                  seed = seed
-            )
+            sim <- Ogata(nsim, 
+                         lambda = hawkesRate, 
+                         h = h,
+                         A = A,
+                         Delta = Delta,
+                         beta0 = beta0,
+                         seed = seed,
+                         phi = object@models[[1]]@family@phi,
+                         ...)
+            sim[, 'markType'] <- factor(responseNames[sim[, 'markType']])
+            sim
           }
 )

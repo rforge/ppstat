@@ -1,5 +1,7 @@
 useDynLib(ppstat, .registration = TRUE)
 
+import(methods)
+import(ggplot2)
 import(Matrix)
 
 importFrom("splines",
@@ -11,15 +13,24 @@ importFrom("stats",
            simulate,
            vcov)
 
-importFrom("processdata",
-           "subset")
+importFrom("graphics", 
+           plot)
+
+importFrom("utils", 
+           object.size, 
+           str)
            
-exportClasses(Family,
+exportClasses(ContinuousProcess,
+              Family,
+              JumpProcess,
+              MarkedPointProcess,
+              MultivariatePointProcess,
               PointProcess,
               PointProcessModel,
               PointProcessSmooth,
               PointProcessKernel,
-              MultivariatePointProcess)
+              ProcessData
+              )
 
 export(bSpline,
        coefficients,
@@ -49,8 +60,24 @@ exportMethods("coefficients",
               "computeDDMinusLogLikelihood",
               "family",
               "formula",
+              "getColumns",
               "getInformation",
               "getLinearFilter",
+              "getEquiDistance",
+              "getId",
+              "getFactors",
+              "getPointId",
+              "getMarkType",
+              "getMarkValue",
+              "getNumerics",
+              "getPlotData",
+              "getPointTime",
+              "getPointPosition",
+              "getPointPointer",
+              "getPosition",
+              "getTime",
+              "getValue",
+              "getUnitData",
               "penalty",
               "penalty<-",
               "predict",
@@ -62,4 +89,18 @@ exportMethods("coefficients",
               "summary",
               "termPlot",
               "update",
-              "vcov")
+              "vcov",
+              "continuousProcess",
+              "colNames",
+              "dim",
+              "integrator",
+              "jumpProcess",
+              "markedPointProcess",
+              "object.size",
+              "plot",
+              "process",
+              "str",
+              "subset",
+              "summary",
+              "unsubset",
+              "[")

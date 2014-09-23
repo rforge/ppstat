@@ -24,14 +24,14 @@ ppSmooth <- function(
   
   specials <- attr(terms, "specials")$s
   smoothVar <- lapply(as.list(attr(terms, "variables"))[1 + specials], all.vars)
-  sCall$formula <- reformulate(sub("s\\(", "ppstat:::.__s__(", attr(terms, "term.labels")),
+  sCall$formula <- reformulate(sub("s\\(", ".__s__(", attr(terms, "term.labels")),
                                response = terms[[2]])
   termLabels <- attr(terms, "term.labels")
   smoothTerms <- which(apply(attr(terms, "factor")[specials, , drop = FALSE] > 0, 2, any))
   model <- eval(sCall, parent.frame())
   if (class(model) == "MultivariatePointProcess")
     stop("Multivariate models currently not supported with 'ppSmooth'.")
-  names(model@basisEnv$basis) <- sub("ppstat:::.__s__\\(", "s(", 
+  names(model@basisEnv$basis) <- sub(".__s__\\(", "s(", 
                                      names(model@basisEnv$basis))
   formula(model) <- form
   model <- as(model, "PointProcessSmooth")
@@ -39,14 +39,18 @@ ppSmooth <- function(
   ## 'knots' is passed further on to 'computeBasis' as the knot-selection strategy.
   model <- computeModelMatrix(model, strategy = knots)
   
-  if (missing(coefficients))
-    coefficients <- .Machine$double.eps
-  coefficients(model) <- coefficients
-  nc <- length(coefficients(model))
+  nc <- ncol(getModelMatrix(model))
   rePar <- getAssign(model) %in% smoothTerms
   Vlist <- lapply(model@basisEnv$basis[names(smoothTerms)], function(b) attr(b, "V"))
   model@V <- Diagonal(nc)
   model@V[rePar, rePar] <- bdiag(Vlist)
+  misCoef <- missing(coefficients)
+  if (misCoef)
+    coefficients <- .Machine$double.eps
+  coefficients(model) <- coefficients
+  if (misCoef)
+    coefficients(model) <- as.numeric(solve(model@V, coefficients(model)))
+  colnames(model@V) <- names(coefficients(model))
   if (missing(lambda)) 
     lambda <- 1
   if (length(lambda) == 1) {
@@ -56,9 +60,10 @@ ppSmooth <- function(
   }
   
   penalty(model) <- lambda
+  model <- updateResponseMatrix(model)
   
   if(fit) {
-    model <- ppmFit(model, selfStart = TRUE, ...)
+    model <- ppmFit(model, ...)
   } else {
     ## Initializing the variance matrix without computing it.
     model <- computeVar(model, method = "none")
@@ -118,47 +123,72 @@ setMethod("computeBasis", "PointProcessSmooth",
 )
 
 computeKnots <- function(x, y, support, strategy = "log", ...) {
-  ## TODO: Implement this in C!?
-  differences <- outer(x, y, '-')
-  differences <- differences[differences > support[1] & differences < support[2]]
-  differences <- unique(differences)
-  ## TODO: Implement different strategies for "thinning". This one is taken from
-  ## smooting.spline directly ...
-  sknotl <- function(x, nk = "log")
-  {
-    ## if (!all.knots)
-    ## return reasonable sized knot sequence for INcreasing x[]:
-    n.kn <- function(n) {
-      ## Number of inner knots
-      if(n < 50L) n
-      else trunc({
-        a1 <- log( 50, 2)
-        a2 <- log(100, 2)
-        a3 <- log(140, 2)
-        a4 <- log(200, 2)
-        if	(n < 200L) 2^(a1+(a2-a1)*(n-50)/150)
-        else if (n < 800L) 2^(a2+(a3-a2)*(n-200)/600)
-        else if (n < 3200L)2^(a3+(a4-a3)*(n-800)/2400)
-        else  200 + (n-3200)^0.2
-      })
+  if (is.numeric(strategy) & length(strategy) > 1) {
+    knots <- strategy
+    knots <- knots[knots > support[1] & knots < support[2]]
+    knots <- c(support[1], unique(sort(knots)), support[2])
+  } else {
+    ## TODO: Implement this in C!?
+    differences <- outer(x, y, '-')
+    differences <- differences[differences > support[1] & differences < support[2]]
+    differences <- unique(differences)
+    ## TODO: Implement different strategies for "thinning". This one is taken from
+    ## smooting.spline directly ...
+    sknotl <- function(x, nk = "log")
+    {
+      ## if (!all.knots)
+      ## return reasonable sized knot sequence for INcreasing x[]:
+      n.kn <- function(n) {
+        ## Number of inner knots
+        if(n < 50L) n
+        else trunc({
+          a1 <- log( 50, 2)
+          a2 <- log(100, 2)
+          a3 <- log(140, 2)
+          a4 <- log(200, 2)
+          if	(n < 200L) 2^(a1+(a2-a1)*(n-50)/150)
+          else if (n < 800L) 2^(a2+(a3-a2)*(n-200)/600)
+          else if (n < 3200L)2^(a3+(a4-a3)*(n-800)/2400)
+          else  200 + (n-3200)^0.2
+        })
+      }
+      n <- length(x)
+      if(isTRUE(nk == "log")) {
+        nk <- n.kn(sqrt(n))  ## This is modified from 'smoothing.spline'
+      } else if(isTRUE(nk == "all")) {
+        nk <- n
+      } 
+      if(!is.numeric(nk)) 
+        stop("'nknots' must be numeric <= n")
+      if(nk > n)
+        stop("Cannot use more inner knots than unique 'x' values.")
+      inner <- x[seq.int(1, n, length.out= nk)]
+      inner <- inner[-c(1, length(inner))]
+      c(rep(x[1L], 4L), inner, rep(x[n], 4L))
     }
-    n <- length(x)
-    if(isTRUE(nk == "log")) {
-      nk <- n.kn(sqrt(n))  ## This is modified from 'smoothing.spline'
-    } else if(isTRUE(nk == "all")) {
-      nk <- n
-    } 
-    if(!is.numeric(nk)) 
-      stop("'nknots' must be numeric <= n")
-    if(nk > n)
-      stop("Cannot use more inner knots than unique 'x' values.")
-    inner <- x[seq.int(1, n, length.out= nk)]
-    inner <- inner[-c(1, length(inner))]
-    c(rep(x[1L], 4L), inner, rep(x[n], 4L))
+    knots <- sknotl(c(support[1], sort(differences), support[2]), nk = strategy) 
   }
-  knots <- sknotl(c(support[1], sort(differences), support[2]), nk = strategy) 
   return(knots)
 }
+
+setMethod("computeSandwichKJ", "PointProcessModel",
+          function(model, ...) {
+            X <- getModelMatrix(model)
+            eta <- predict(model)
+            phi <- model@family@phi
+            Dphi <- model@family@Dphi
+            if (model@family@link == 'identity') {
+              J <- getCrossProd(model)$G
+              w <- Diagonal(x = eta * model@delta)
+              K <- crossprod(model@V, crossprod(w %*% X, X)) %*% model@V
+            } else {
+              wX <- Diagonal(x = Dphi(eta)^2 * model@delta) %*% X
+              J <- crossprod(model@V, crossprod(wX, X)) %*% model@V
+              K <- crossprod(model@V, crossprod(Diagonal(x = phi(eta)) %*% wX, X)) %*% model@V
+            }
+            return(list(K = K, J = J))
+          }
+)
 
 setMethod("computeLinearPredictor", "PointProcessSmooth",
           function(model, coefficients = NULL, ...) {
@@ -212,7 +242,7 @@ setMethod("getBasis", c(model = "PointProcessSmooth", term = "ANY"),
               basis <- model@basisEnv$basis
             } else {
               basis <- model@basisEnv$basis[[term]]
-              if (rePar) 
+              if (rePar && !is.null(attr(basis, "V"))) 
                 basis <- basis %*% attr(basis, "V")
             }
             basis
@@ -232,6 +262,24 @@ setMethod("update", "PointProcessSmooth",
            message("No 'update' method currently implemented for a 'PointProcessSmooth' object.")
            object
           }          
+)
+
+setMethod("updateCrossProd", "PointProcessSmooth",
+          function(model, subset = FALSE, ...) {
+            test <- 'G' %in% names(model@crossProd)
+            if(xor(test, subset))
+              return(model)
+            
+            model <- callNextMethod()
+            
+            if (!test) {
+              G <- model@crossProd$G
+              G <- crossprod(model@V, G) %*% model@V
+              response <- model@responseMatrix %*% model@V
+              model@crossProd <-  list(G = G, response = colSums(response))
+            }
+            return(model)
+          }
 )
 
 ## TODO: New summary function for an object of class 'PointProcessSmooth'.

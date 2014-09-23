@@ -51,6 +51,7 @@ setMethod("getLinearFilter", "MultivariatePointProcess",
           function(model, ...) {
             models <- getModels(model)
             linearFilter <- vector("list", length(models))
+            names(linearFilter) <- response(model)
             for(m in seq_along(models))
               linearFilter[[m]] <- getLinearFilter(models[[m]])
             linearFilter
@@ -60,6 +61,12 @@ setMethod("getLinearFilter", "MultivariatePointProcess",
 setMethod("getAdjacencyMatrix", "MultivariatePointProcess",
           function(model, ...) {
             return(model@adjMat)
+          }
+)
+
+setMethod("response", "MultivariatePointProcess",
+          function(model, ...) {
+            sapply(getModels(model), response)
           }
 )
 
@@ -160,7 +167,7 @@ setReplaceMethod("setModels", "MultivariatePointProcess",
                    } 
                    
                    for(i in seq_along(value)) {
-                     to <- ppstat:::response(value[[i]])
+                     to <- response(value[[i]])
                      from <- setdiff(all.vars(formula(value[[i]])), to)
                      adjMat[to, from] <- 1L
                    }

@@ -24,7 +24,7 @@ pointProcessModel(formula, data, family, support = 1, N = 200, Delta,
   lambda, coefficients, modelMatrix = TRUE, fit = modelMatrix, 
   varMethod = 'Fisher', basisEnv, selfStart = TRUE, ...)
 
-\S4method{ppmFit}{PointProcessModel}(model, control = list(), optim = 'optim', selfStart = FALSE, ...)
+\S4method{ppmFit}{PointProcessModel}(model, control = list(), optim = 'optim', selfStart = TRUE, ...)
 
 \S4method{ppmFit}{MultivariatePointProcess}(model, control = list(), ...)
 
@@ -93,8 +93,8 @@ pointProcessModel(formula, data, family, support = 1, N = 200, Delta,
 
   \item{selfStart}{a \code{logical} specifying if the fitting procedure
   should compute a preliminary estimate before the actual
-  optimization. Default is \code{FALSE} which means that \code{ppmFit}
-  uses the current model parameters as starting values.}
+  optimization. If it is \code{FALSE}, the current model parameters
+  are used as starting values. Default value is \code{TRUE}.}
 
   \item{\dots}{additional parameters that are passed on to \code{ppmFit}
     or the optimization algorithm, e.g. \code{optim}.}

@@ -10,13 +10,9 @@ registerParBackend <- function(backend = 'mc', cores = NULL) {
         if(!is.null(cores))
           options(mc.cores = cores)
         
-        assign("lapplyParallel", parallel:::mclapply, .ppstatGlobals)
+        assign("lapplyParallel", parallel::mclapply, .ppstatGlobals)
         assign("backend", "mc", .ppstatGlobals)
         message("Registering 'mclapply' from package multicore as parallel backend\n for ppstat.")
-        if(identical(getOption("device"), quartz)) {
-          message("Note: The current graphics device is 'quartz'. See ?registerParBackend\n for potential issues running ppstat using 'mclapply' in combination\n with the quartz device.\n")
-        }
-
       } else {
         stop("The 'parallel' package is not available.")
       }

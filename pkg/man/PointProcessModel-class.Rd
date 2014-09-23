@@ -70,7 +70,7 @@
     \item{\code{crossProd}:}{a \code{"list"} containing the cross product ot the 
     model matrix.}
 
-    \item{\code{filterTerms}:}{a \code{"numeric"} specifying the terms in the formul
+    \item{\code{filterTerms}:}{a \code{"numeric"} specifying the terms in the formula
     that are filter terms.}
 
     \item{\code{modelMatrixCol}:}{a \code{numeric} vector.}

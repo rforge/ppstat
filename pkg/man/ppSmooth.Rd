@@ -32,11 +32,12 @@ ppSmooth(formula, data, family, support = 1, knots = 'log', N = 200, Delta, lamb
     \code{support[2]}. If \code{support} is of length 1 the support is the
     interval from 0 to \code{support[1]}. The default value is 1.}
 
-  \item{knots}{a \code{character} or \code{numeric}. The numer of knots to use.
+  \item{knots}{a \code{character} or \code{numeric}. The number or value of knots to use.
   The default value, \code{'log'}, means that an algorithm similar to 
-  the one in \code{smoothing.spline} is used to select the number of knots. 
-  Other possible values are \code{'all'} (not recommended) or an \code{integer} 
-  specifying the precise number of knots. 
+  the one in \code{smoothing.spline} is used to adaptively select the number of knots. 
+  Other possible values are \code{'all'} (not recommended), an \code{integer} 
+  specifying the precise number of adaptive knots that are used, or a numeric vector 
+  of length 2 or more specifying the knots in a non-adaptive way. 
   }
 
   \item{N}{a \code{numeric}. The number of basis function evaluations

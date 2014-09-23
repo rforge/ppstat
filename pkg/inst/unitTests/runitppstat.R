@@ -1,6 +1,6 @@
 library(ppstat)
 
-data(example, package = "processdata")
+data(example)
 
 testPPM <- pointProcessModel(ALPHA ~ gender,
                              data = pointExam,

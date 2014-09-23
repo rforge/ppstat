@@ -24,14 +24,14 @@ ppKernel <- function(
   response <- NULL
   if(attr(terms, "response") != 0)
     response <- terms[[2]]
-  kCall$formula <- reformulate(sub("k\\(", "ppstat:::.__k__(", attr(terms, "term.labels")),
+  kCall$formula <- reformulate(sub("k\\(", ".__k__(", attr(terms, "term.labels")),
                                response = response)
   kernels <- attr(terms, "specials")$k
   kernelTerms <- which(apply(attr(terms, "factor")[kernels, , drop = FALSE] > 0, 2, any))
   model <- eval(kCall, parent.frame())
   if (class(model) == "MultivariatePointProcess")
     stop("Multivariate models currently not supported with 'ppKernel'.")
-  names(model@basisEnv$basis) <- sub("ppstat:::.__k__\\(", "k(", 
+  names(model@basisEnv$basis) <- sub(".__k__\\(", "k(", 
                                      names(model@basisEnv$basis))
   formula(model) <- form
   
@@ -55,7 +55,7 @@ ppKernel <- function(
   if (missing(coefficients))
     coefficients <- .Machine$double.eps
   coefficients(model) <- coefficients
-    
+  
   d <- ncol(getKernelBasis(model))
   nc <- length(coefficients(model))
   if (missing(lambda)) {
@@ -71,7 +71,7 @@ ppKernel <- function(
     model <- ppmFit(model, selfStart = FALSE, ...)
   }
   else {
-  ## Initializing the variance matrix without computing it.
+    ## Initializing the variance matrix without computing it.
     model <- computeVar(model, method = 'none')  
   }
   
@@ -156,7 +156,7 @@ setMethod("computeModelMatrix", "PointProcessKernel",
             ## Checks if the model is allowed to be anticipating and sets
             ## the 'zero' accordingly.
             
-            if(ppstat:::anticipating(model)) {
+            if(anticipating(model)) {
               zero <- which(model@basisPoints == 0) - 1
             } else {
               zero <- 0
@@ -195,69 +195,69 @@ setMethod("computeModelMatrix", "PointProcessKernel",
             
             ## Model matrix computations for the terms involving filters:
             
-            design <- ppstat:::lapplyParallel(kernelTerms,
-                                              function(i, ...) {
-                                                term <- termLabels[i]
-                                                variable <- all.vars(terms[i])
-                                                
-                                                if(!variable %in% markLevels)
-                                                  stop("The use of kernel filters is only implemented for point process variables.")
-                                                
-                                                
-                                                ## The occurrence matrix is computed by a loop over 
-                                                ## each value of 'id' whose result is stored in
-                                                ## 'designList'.
-                                                
-                                                ## TODO: C level computation?
-                                                
-                                                designList <- list()
-                                                
-                                                ## Central loop over 'idLevels' and computations of
-                                                ## the occurrence matrix as a sparse matrix, bound together
-                                                ## in one matrix below
-                                                ## and stored in the variable 'localDesign'.
-                                                
-                                                for(i in idLevels) {
-                                                  posi <- positions[marks == variable & id == i]
-                                                  ## posi is sorted for a valid data object. This is
-                                                  ## assumed in the following computation.                                        
-                                                  
-                                                  xt <- evalPositions[[i]]
-                                                  nt <- length(xt)
-                                                  xs <- posi
-                                                  ns <- 1
-                                                  xZ <- numeric(nt*r)
-                                                  d <- model@Delta
-                                                  antip <- zero
-                                                  w <- (r-1)*d
-                                                  
-                                                  for(ii in 1:nt) {
-                                                    target = xt[ii] + antip;
-                                                    while(ns < length(xs) && target > xs[ns+1])
-                                                      ns <- ns + 1;
-                                                    nss = ns;
-                                                    diff = target - xs[ns];
-                                                    if(diff > 0) {
-                                                      while(diff <= w) 
-                                                      { 
-                                                        lookupIndex = floor(diff/d + 0.5);
-                                                        entry = ii + nt*lookupIndex;
-                                                        xZ[entry] <- xZ[entry] + 1;
-                                                        ns <- ns - 1;
-                                                        if(ns < 1) break;
-                                                        diff = target - xs[ns];
-                                                      }
-                                                    }
-                                                    ns = nss;
-                                                  }
-                                                  
-                                                  designList[[i]] <- Matrix(xZ, nrow = nt, sparse = TRUE)
-                                                }
-                                                localDesign <- do.call("rBind", designList)
-                                                colnames(localDesign) <- paste(term, 1:r, sep = "")
-                                                localDesign ## The return value
-                                              },     
-                                              mc.preschedule = FALSE 
+            design <- lapplyParallel(kernelTerms,
+                                     function(i, ...) {
+                                       term <- termLabels[i]
+                                       variable <- all.vars(terms[i])
+                                       
+                                       if(!variable %in% markLevels)
+                                         stop("The use of kernel filters is only implemented for point process variables.")
+                                       
+                                       
+                                       ## The occurrence matrix is computed by a loop over 
+                                       ## each value of 'id' whose result is stored in
+                                       ## 'designList'.
+                                       
+                                       ## TODO: C level computation?
+                                       
+                                       designList <- list()
+                                       
+                                       ## Central loop over 'idLevels' and computations of
+                                       ## the occurrence matrix as a sparse matrix, bound together
+                                       ## in one matrix below
+                                       ## and stored in the variable 'localDesign'.
+                                       
+                                       for(i in idLevels) {
+                                         posi <- positions[marks == variable & id == i]
+                                         ## posi is sorted for a valid data object. This is
+                                         ## assumed in the following computation.                                        
+                                         
+                                         xt <- evalPositions[[i]]
+                                         nt <- length(xt)
+                                         xs <- posi
+                                         ns <- 1
+                                         xZ <- numeric(nt*r)
+                                         d <- model@Delta
+                                         antip <- zero
+                                         w <- (r-1)*d
+                                         
+                                         for(ii in 1:nt) {
+                                           target = xt[ii] + antip;
+                                           while(ns < length(xs) && target > xs[ns+1])
+                                             ns <- ns + 1;
+                                           nss = ns;
+                                           diff = target - xs[ns];
+                                           if(diff > 0) {
+                                             while(diff <= w) 
+                                             { 
+                                               lookupIndex = floor(diff/d + 0.5);
+                                               entry = ii + nt*lookupIndex;
+                                               xZ[entry] <- xZ[entry] + 1;
+                                               ns <- ns - 1;
+                                               if(ns < 1) break;
+                                               diff = target - xs[ns];
+                                             }
+                                           }
+                                           ns = nss;
+                                         }
+                                         
+                                         designList[[i]] <- Matrix(xZ, nrow = nt, sparse = TRUE)
+                                       }
+                                       localDesign <- do.call("rBind", designList)
+                                       colnames(localDesign) <- paste(term, 1:r, sep = "")
+                                       localDesign ## The return value
+                                     },     
+                                     mc.preschedule = FALSE 
             ) ## End lapplyParallel
             
             assign <- unlist(lapply(kernelTerms,
@@ -320,7 +320,7 @@ setMethod("computeLinearPredictor", "PointProcessKernel",
           function(model, coefficients = NULL, ...) {
             if(!is.null(coefficients)) 
               coefficients(model) <- coefficients
-             
+            
             modelMatrix <- getModelMatrix(model)
             d <- ncol(modelMatrix)
             coefficients <- coefficients(model)[seq_len(d)]
@@ -337,7 +337,7 @@ setMethod("computeMinusLogLikelihood", "PointProcessKernel",
                            fastIdentity = FALSE, ...)
           }
 )
-                   
+
 setMethod("computeQuadraticContrast", "PointProcessKernel",
           function(model, coefficients = NULL, ...) {
             callNextMethod(model = model, coefficients = coefficients, 
@@ -351,26 +351,36 @@ setMethod("computeDMinusLogLikelihood", "PointProcessKernel",
               stop("No response variable specified.")
             if(is.null(eta))
               eta <- computeLinearPredictor(model, coefficients, ...)
-            
+            Z <- getResponseMatrix(model)
+            X <- getModelMatrix(model)
+            ZZ <- getResponseKernelMatrix(model)
             kM <- getKernelMatrix(model)
-            Z <- getResponseKernelMatrix(model)
             
-            if(model@family@link == "log") {
+            if (model@family@link == 'identity') {
               
-              dmll <- (as.vector(crossprod(exp(eta) * model@delta, kM)) -
-                         colSums(Z)) %*% model@U
+              etaP <- 1/eta[getPointPointer(processData(model), response(model))]
+              
+              dmll <- getz(model) - c(as.vector(etaP %*% Z), as.vector(etaP %*% ZZ))
+              
+            } else if (model@family@link == "log") {
+              
+              expEta <- exp(eta) * model@delta
+              
+              dmll <- c(as.vector(expEta %*%  X) - colSums(Z),
+                        as.vector((as.vector(expEta %*% kM) - colSums(ZZ)) %*% model@U))
               
             } else {
               
               etaP <- eta[getPointPointer(processData(model), response(model))]
+              Dphi <- model@family@Dphi(eta) * model@delta
+              DphiPhi <- model@family@Dphi(etaP) / model@family@phi(etaP)
               
-              dmll <-  (as.vector(crossprod(model@family@Dphi(eta) * model@delta, kM)) -
-                          as.vector(crossprod(model@family@Dphi(etaP)/model@family@phi(etaP), Z))) %*% model@U
+              dmll <-  c(as.vector(Dphi %*% X) - as.vector(DphiPhi %*% Z),
+                         as.vector((as.vector(Dphi %*% kM) - as.vector(DphiPhi %*% ZZ)) %*% model@U))
               
             }
             
-            c(callNextMethod(model = model, eta = eta, fastIdentity = FALSE, ...), 
-              as.numeric(dmll))
+            return(as.numeric(dmll))
           }
 )
 

@@ -1,135 +1,147 @@
-setClass("Family",
+setOldClass(c("factor.frame", "data.frame"))
+
+setClass("ProcessData",
          representation(
-           name = "character",
-           link = "character",       ## Name of the link, e.g. log if phi = exp
-           phi = "function",         ## The function that may be called the inverse link
-           Dphi = "function",        ## First derivative
-           D2phi= "function"         ## Second derivative
-           )
-         )
+                        ## metaData is a list, in general unrestricted.
+                        ## The slot can contain information
+                        ## on the experiment or procedure by which the
+                        ## data is obtained.
+                        metaData = "list",
 
-setClass("PointProcess",
-         representation(
-           call = "call",
+                        ## Column names.
+                        unitColNames = "character",
 
-           ## The equidistant spacing between the g-evaluations.
-           Delta = "numeric",      
+                        ## The valueEnv is assumed to have a data
+                        ## frame, unitData, that holds general
+                        ## information for each unit for which we have
+                        ## observations. Each row name is the unit id. 
+                        valueEnv = "environment",
 
-           delta = "numeric",
-           family = "Family",
-           formula = "formula",
-           response = "character",
-           loss = "character",
-
-           ## Results from call to 'optim' goes here.
-           optimResult = "list",
-           
-           ## The process data.
-           processData = "MarkedPointProcess",
-           
-           ## A vector c(a,b) with the support, [a,b], of the g-functions.
-           support = "numeric",
-
-           ## The (effective) degrees of freedom.
-           df = "numeric",
-
-           "VIRTUAL")
-         )
-
-setClass("PointProcessModel",
-         representation(
-           ## Evaluations of basis functions in support
-           ## at Delta-grid values are in the list
-           ## 'basis' in this environment.
-           basisEnv = "environment",
-           
-           ## The 'basisPoints' contains the evaluation
-           ## points (the grid) for the basis functions.
-           basisPoints = "numeric",
-           
-           coefficients = "numeric",
-           filterTerms = "numeric",
-           
-           ## The 'active' columns. Set in update, used
-           ## in getModelMatrix and reset in
-           ## computeModelMatrix
-           modelMatrixCol = "numeric",
-           
-           ## The modelMatrix of class 'modelMatrix' is
-           ## in this environment. So is the formula used
-           ## to create the model matrix and an 'assign'
-           ## vector. Locked after computation.
-           modelMatrixEnv = "environment",
-
-           responseMatrix = "Matrix",
-           crossProd = "list",
-
-           lambda = "numeric",
-           var = "matrix",
-           
-           ## Which method is used to compute the
-           ## estimate of the
-           ## variance. 'pointProcessModel' has default
-           ## 'Fisher'.
-           varMethod = "character"      
-           ),
-         contains = "PointProcess",
+                        ## Name of the id variable.
+                        idVar = "character",
+                        
+                        ## Two vectors indexing a subset of the full data set
+                        ## in the valueEnv environment.
+                        iUnitSubset = "integer",
+                        jUnitSubset = "integer"
+                        ),
          validity = function(object) {
-           if(isTRUE(object@support[2] - object@support[1] <= 0))
-             stop("Variable 'support' has to be an interval.")
-           if(isTRUE(object@Delta > object@support[2] - object@support[1]))
-             stop("Variable 'Delta' has to be smaller than the length of the support.")
+           
+           return(TRUE)
+         }
+         ## validity = function(object) {
+         ##   if(!("id" %in% names(object@unitData)))
+         ##     stop("The 'id' column for the 'unitData' data frame in 'ProcessData' is not defined")
+         ##   if(class(object@unitData$id) !=  "factor")
+         ##     stop("The 'id' column for the 'unitData' data frame in 'ProcessData' must be a 'factor'")
+           
+         ##   return(TRUE)
+         ## }
+         )
+
+setClass("ContinuousProcess",
+         representation(
+
+                        ## Additional column names.
+                        factorColNames = "character",
+                        numericColNames = "character",
+
+                        ## Two vectors indexing a subset of the full data set
+                        ## in the valueEnv environment.
+                        iSubset = "integer",
+                        jSubset = "integer",
+                        
+                        ## Name of the position variable.
+                        positionVar = "character",
+                        equiDistance = "numeric"
+
+                        ## The 'valueEnv' will also contain the following 
+                        ## components of the data:
+                        ## position = "numeric",
+                        ## and any number of numeric and non-numeric vectors
+                        ),
+         contains = "ProcessData",
+         validity = function(object){
+           ## Checks that the environment contains the correct components.
+           if(!is.factor(object@valueEnv$id))
+             stop(paste("No", object@idVar, "or", object@idVar, "is not a factor."))
+           if(!is.numeric(object@valueEnv$position))
+             stop(paste("No", object@positionVar, "or", object@positionVar, "is not a numeric."))
+ 
+           id <- getId(object)
+           position <- getPosition(object)
+           idLevels <- split(seq_along(id), id)
+           if(is.unsorted(id) || any(sapply(length(idLevels),
+                                            function(i) is.unsorted(position[idLevels[[i]]]))))
+             stop(paste(object@positionVar ,"not sorted within", object@idVar))
+           
+           ## Checks that the components in the environment have the correct
+           ## format. 
+           if((length(object@valueEnv$id) != length(object@valueEnv$position)))
+             stop("Mismatch in the size of slots for 'ContinuousProcess'.")
+
+           ## TODO: Check length of all other vectors.
+          
            return(TRUE)
          }
          )
 
-setClass("PointProcessSmooth",
-         representation(
-           ## The terms in the formula that are smooth terms.
-           smoothTerms = "numeric", 
-           ## The V matrix is a block diagonal matrix
-           ## used for internal reparametrization of the 
-           ## smoothing terms.
-           V = "Matrix"
-           ),
-         contains = "PointProcessModel"
-         )
 
-setClass("PointProcessKernel",
+setClass("MarkedPointProcess",
          representation(
-           ## Non-parametric components
-           g = "numeric",
-           
-           ## The terms in the formula that are kernel terms.
-           kernelTerms = "numeric", 
-                     
-           ## The 'active' kernel columns. Set in update, used
-           ## in getKernelMatrix and reset in
-           ## computeKernelMatrix
-           kernelMatrixCol = "numeric",
-           
-           ## The 'kernelMatrixEnv' contains the
-           ## kernelMatrix used for computations with
-           ## non-parametric kernel filters.
-           kernelMatrixEnv = "environment",
-           
-           responseKernelMatrix = "Matrix",
-           
-           ## The U matrix is a block diagonal matrix
-           ## stored as a sparse matrix which encodes
-           ## the reparametrization of the kernel
-           ## expansion.
-           U = "Matrix"           
-           ),
-         contains = "PointProcessModel")
+                        ## Column names.
+                        markColNames = "character",
+                        markValueColNames = "character",
+                        
+                        iPointSubset = "integer",
+                        jPointSubset = "integer",
 
-setClass("MultivariatePointProcess",
-         representation(
-           models = "list",
-           adjMat = "matrix"
-           ),
+                        ## The pointer for subsetted objects to the
+                        ## point positions.
+                        pointPointer = "integer",
+                        
+                        ## The 'pointProcessEnv' environment contains
+                        ## the following four components:
+                        ## id = "factor",
+                        ## markType = "factor",
+                        ## pointPointer = "integer",
+                        ## markValue = "data.frame"
+                        pointProcessEnv = "environment"
+                        ),
+         contains = "ContinuousProcess",
          validity = function(object) {
-           if(any(sapply(object@models, function(m) !isClass(m, "PointProcessModel"))))
-             stop("Objects in model list are not all of class 'PointProcessModel'.")
+           len <- length(object@pointProcessEnv$id)
+           if(len != length(object@pointProcessEnv$markType))
+             stop("Sizes of the slots 'id' and 'markType' do not match.")
+          
+           if(any(levels(getPointId(object)) != rownames(getUnitData(object)))) 
+             stop(paste("The point process levels of", object@idVar, "and the row names of unitData are not of equel length or in the same order."))
+           if(any(unlist(lapply(split(getPointPosition(object), getPointId(object)), is.unsorted))))
+             stop(paste(object@positionVar,"for the point process data not sorted within", object@idVar))
+           
+           return(TRUE)
          }
          )
+
+setClass("JumpProcess",
+         representation(jumpVar = "character"),
+         contains = "MarkedPointProcess",
+         validity = function(object) {
+           return(TRUE)
+         }
+         )
+
+## TODO: Validity checks, constructors etc. 
+
+setClass("ProcessPlotData",
+         representation(continuousPlotData = "data.frame",
+                        factorPlotData = "data.frame",
+                        pointPlotData = "data.frame",
+                        position = "character",
+                        limits = "numeric",
+                        breaks = "numeric",
+                        labels = "character",
+                        idVar = "character",
+                        positionVar = "character")
+         )
+                        
